@@ -1,0 +1,31 @@
+# ===== 编译产物（固件） =====
+firmware/TaskManagerFirmware/build/
+*.bin
+*.elf
+*.map
+*.partitions.bin
+*.bootloader.bin
+*.ino.bin
+
+# ===== 日志与临时文件 =====
+*.log
+_*.log
+_selftest_out/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+.venv/
+pipcache/
+*.egg-info/
+
+# ===== 操作系统 / 编辑器 =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ===== 本地凭据（切勿提交！） =====
+fw_config.local.h
+*.local
+.env
