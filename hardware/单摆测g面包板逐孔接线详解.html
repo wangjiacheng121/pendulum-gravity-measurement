@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单摆测 g · 面包板逐孔接线详解（V2 双电源轨版）</title>
+<style>
+  :root{--bg:#f7f8fa;--card:#fff;--ink:#1f2329;--sub:#5b6168;--line:#e5e7eb;--brand:#2b6cff;--brand2:#0aa06e;--warn:#d97706;--red:#d6453d;--orange:#e67e22;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 64px}
+  header{background:linear-gradient(135deg,#2b6cff,#0aa06e);color:#fff;border-radius:16px;padding:22px 26px;margin-bottom:18px}
+  header h1{margin:0 0 6px;font-size:22px} header p{margin:0;opacity:.92;font-size:14px}
+  .badge{display:inline-block;background:#ffd54d;color:#5c4400;font-weight:700;font-size:12px;border-radius:999px;padding:2px 10px;margin-left:8px;vertical-align:2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  h2{font-size:19px;margin:2px 0 12px;padding-left:10px;border-left:4px solid var(--brand)}
+  h3{font-size:16px;margin:16px 0 8px;color:#243}
+  .muted{color:var(--sub);font-size:13px}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#eef3ff;color:#1b3a8f;font-weight:600}
+  tr:nth-child(even) td{background:#fafbfc}
+  code{background:#eef1f5;padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .note{border-left:4px solid var(--warn);background:#fff8ee;padding:10px 14px;border-radius:8px;margin:12px 0;font-size:13.5px}
+  .danger{border-left:4px solid var(--red);background:#fdf0ef;padding:10px 14px;border-radius:8px;margin:12px 0;font-size:13.5px}
+  .good{border-left:4px solid var(--brand2);background:#effaf4;padding:10px 14px;border-radius:8px;margin:12px 0;font-size:13.5px}
+  .step{background:#f3f6ff;border:1px solid #d6e2ff;border-radius:10px;padding:10px 14px;margin:8px 0}
+  .step b{color:#1b3a8f}
+  svg{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:10px;margin:8px 0}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0;font-size:13px}
+  .chain .box{border-radius:8px;padding:8px 12px;font-weight:600;text-align:center}
+  .chain .arrow{color:#5b6168;font-weight:700}
+  .foot{color:var(--sub);font-size:12.5px;margin-top:24px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>单摆测 g · 面包板逐孔接线详解<span class="badge">V2 双电源轨版</span></h1>
+  <p>MB-102 面包板 + MB102 电源模块 · 18 根线（15 必接 + 3 桥线）· 无焊接 · 配套《单摆测重力加速度全套方案》 · 新手请先读 <a href="面包板基础知识.html" style="color:#fff;text-decoration:underline">《面包板基础知识》</a> · <b>✅ 电源模块已规定「正插」（红=正 · 蓝=负，锁定可信）</b></p>
+</header>
+
+<!-- 为什么改版 -->
+<div class="card">
+  <h2>〇、为什么有 V2？（与旧版的差异）</h2>
+  <p>实物采购后发现：本轮买到的 <b>15mm 宽槽光电门是 5V 专用</b>（不能接 3.3V），且其 OUT 引脚空闲时输出 <b>5V 高电平</b>——直接进 ESP32 的 GPIO4 有过压风险。因此电气架构升级为「双电源轨 + 电平转换」：</p>
+  <table>
+    <tr><th>项目</th><th>旧版（V1）</th><th>V2（本页，以实物为准）</th></tr>
+    <tr><td>电源架构</td><td>单 3.3V 轨，光电门直接吃 3.3V</td><td><b>顶轨 3.3V</b>（ESP32 / OLED / 电平转换 VCCA）＋ <b>底轨 5V</b>（MB102 电源模块供电，光电门 VCC / 电平转换 VCCB）</td></tr>
+    <tr><td>光电门信号</td><td>OUT 直连 GPIO4</td><td>OUT（5V 逻辑）→ <b>8 路 BSS138 电平转换模块</b>（只用 A0/B0 一路）→ GPIO4（3.3V 逻辑）</td></tr>
+    <tr><td>主板列位</td><td>左 b 列 / 右 h 列</td><td>经典 MB-102 槽宽 7.62mm → 主板落 <b>d / h 类列对</b>（b/h 仅适用窄槽板）</td></tr>
+    <tr><td>GPIO4 / 3V3 / GND 位置</td><td>「左排 GND、3V3」的通用假设</td><td>改按<b>实物引脚图</b>定标（见 §〇.6）：<b>GPIO4=d21、GPIO5=d20、GPIO8=d16、GPIO9=d15、3V3=d8、GND=d18</b>——关键信号全在 d 列</td></tr>
+    <tr><td>OLED 丝印</td><td>VCC GND SCL SDA（假设）</td><td>实物丝印 <b>GND-VCC-SCL-SDA</b>：c30=GND、c31=VCC、c32=SCL、c33=SDA（插 <b>c30–c33</b>，避让 USB-C 占用的右端 25–27 行）</td></tr>
+    <tr><td>供电方式</td><td>仅 ESP32 USB</td><td>ESP32 USB（3.3V 域）＋ MB102 电源模块独立 USB（5V 域），<b>两域必须共地</b></td></tr>
+  </table>
+  <div class="note">⚠️ 「5 孔条连通规则」不受列位影响，始终适用；但<b>行号公式已随插向改变</b>：本板脚 1 靠右端 → 第 n 脚 = 第 <code>25−n</code> 行（脚 1 = 第 24 行），见 §一 / §〇.6。变的只是列位、行公式和电源域。</div>
+</div>
+
+<!-- 实物校准 -->
+<div class="card">
+  <h2>〇.5 电源模块安装方向已锁定（正插 = 红正 · 蓝负）</h2>
+  <p>你的实物是<b>经典 MB-102 面包板 + MB102 电源模块</b>。这两个特性已在本方案里<b>直接拍板</b>，不再需要万用表实测极性：</p>
+  <div class="good">🔒 <b>两条电源轨的电压已定死：</b><b>顶轨</b>（板上边缘那对红 / 蓝印刷线）= <b>3.3V 域</b>；<b>底轨</b>（板下边缘那对红 / 蓝印刷线）= <b>5V 域</b>。与其对应的模块跳线：<b>顶跳线 OFF</b>（顶轨不靠模块供电，由 ESP32 的 3V3 引脚供）、<b>底跳线 5V</b>（底轨由模块供 5V）。红印 = 正、蓝印 = 负（正插锁定后全板通用）。</div>
+  <table>
+    <tr><th>特性（卖家标注）</th><th>本方案的硬性规定</th><th>为什么安全</th></tr>
+    <tr><td><b>① 模块可正插 / 反插，极性会翻转</b><br>卖家标注：正插→红正蓝负；反插→蓝正红负</td><td>✅ <b>一律「正插」</b>：模块的 <b>+/− 标记对准面包板红 / 蓝线</b>（模块 + 针插红轨、− 针插蓝轨）。<b>自此刻起全板印刷红=正、蓝=负，永久可信，不要再量。</b></td><td>方向是我定的，不是你量的。装模块时低头看一眼模块 +/− 丝印对齐红蓝线，极性就锁死，不可能翻。</td></tr>
+    <tr><td><b>② 面包板中间断开</b>：内部无线路连通，分成两段</td><td>✅ <b>⑰⑱ 桥线 + 两条 − 轨桥线本板必接</b>（顶−、底− 同样断开，一并桥），见 §四。</td><td>这是板子内部物理结构，跟极性无关，桥完即通。</td></tr>
+  </table>
+
+  <h3>安装一步到位（代替原来的「校准五步」）</h3>
+  <div class="step"><b>第 0 步 · 正插锁定：</b>把 MB102 插入面包板<b>左端（第 1 行端，不挪动）</b>电源轨，<b>确认模块的 +/− 标记正对红 / 蓝线（正插）</b>，拨跳线 <b>顶跳线 OFF、底跳线 5V</b>。插好后<b>红=正、蓝=负即锁定</b>。再用万用表<b>通断档只量一件事</b>：底+ 轨最左对最右是否导通（中段断开 → 记下要补 ⑱；− 轨同理补黑线桥；顶轨通电后按 §六第 4 步再量）。<b>极性无需再量。</b></div>
+
+  <div class="note">📏 <b>模块插在哪一端？（按你的决定：<u>留在第 1 行端 · 不挪动</u>）</b>MB102 插在面包板<b>任一端电气上都行</b>（两条电源轨靠 ⑰⑱ 桥线贯通全板）。既然模块固定在第 1 行端（本体横跨约 3 行，会挡住那一端的孔位），本方案把<b>光电门改到右端 <code>c61–c63</code></b>（第 63 行端，除电源轨外全是空行，不挡 ESP32 的 USB 线）；④⑤⑥ 三根线相应加长即可。ESP32 / OLED / 电平转换布局不变。</div>
+
+  <div class="danger">🚫 <b>两条铁律（正插下仍然成立）：</b>① 光电门 <b>严禁接顶轨</b>（5V 专用，只进底+）；② MB102 <b>顶跳线必须 OFF</b>——误拨 5V 会把 5V 灌进顶轨（顶轨由 ESP32 3V3 定义），威胁 ESP32 / OLED。若上电即烧 / 发烫，先查<b>顶跳线是否被误拨 5V</b>，再查<b>模块是否反插</b>（拔下转 180° 重插成正插）。</div>
+
+  <div class="good">💡 <b>「红=正蓝=负」现在成立的条件：</b>仅当模块「正插」——即模块的 + 针在红轨、− 针在蓝轨。装模块时低头看一眼模块上的 +/− 丝印对齐红蓝线即可，一眼的事，不用电表。</div>
+
+  <div class="note">📐 <b>顺带确认板型：</b>MB-102 标准款为 <b>830 孔</b>（63 列，约 16.5×5.5cm）。若你手上实际是 <b>400 孔</b>小半板（30 列，约 8.3cm），ESP32-S3（约 20 列）＋电平转换模块（10 列）无法同板容纳，需两块并排——量一下长度即可确认。本页示意图按 830 孔绘制。</div>
+
+  <div class="note">🔌 <b>供电输入：</b>用 USB 口供电时输入 = 5V（模块正常工作范围）；若改用 DC 圆头输入，必须 <b>7–12V</b>——过低（&lt;7V）会导致输出不足、过高可能烧毁模块（卖家原话）。本项目一律走 USB，省事又安全。</div>
+</div>
+
+<!-- 开发板引脚定标 -->
+<div class="card">
+  <h2>〇.6 开发板引脚定标（按你提供的实物引脚图，2026-10-01）</h2>
+  <p>你的开发板是 <b>立创 ESP32-S3 开发板：2×20 = 40 针（DIP-40，排距 0.6″，2.54mm 脚距）</b>——正好跨插一块 830 面包板的中间槽。引脚定义以实物图为准，两排各 20 针（下表自左向右）：</p>
+  <table style="font-size:12.5px">
+    <tr><th>脚位</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th><th>20</th></tr>
+    <tr><td><b>B 排</b><br><span class="muted">印 01…14 RST 3V3</span></td><td>GPIO1</td><td>GPIO2</td><td>GPIO3</td><td><b>GPIO4</b></td><td><b>GPIO5</b></td><td>GPIO6</td><td><b>GND</b></td><td>GPIO7</td><td><b>GPIO8</b></td><td><b>GPIO9</b></td><td>GPIO10</td><td>GPIO11</td><td>GPIO12</td><td>GPIO13</td><td>GPIO14</td><td>RST</td><td><b>3V3</b></td><td><b>3V3</b></td><td><b>3V3</b></td><td>GND</td></tr>
+    <tr><td><b>A 排</b><br><span class="muted">印 46 45 42…48 BOOT 5V</span></td><td>GPIO46</td><td>GPIO45</td><td>GPIO42</td><td>GPIO41</td><td>GPIO15</td><td>GPIO16</td><td>GPIO17</td><td>GPIO18</td><td>GND</td><td>GPIO21</td><td>GPIO40</td><td>GPIO39</td><td>GPIO38</td><td>GPIO47</td><td>GPIO48</td><td>BOOT</td><td>5V</td><td>5V</td><td>5V</td><td>GND</td></tr>
+  </table>
+  <div class="danger">🚫 <b>本板不是「左排 GND / 3V3」那种板子！</b>3V3 全部挤在 <b>B 排第 17–19 脚</b>；GND 分散在 B 排第 7、20 脚与 A 排第 9、20 脚。旧文档里的「左排 GND(行5)、3V3(行7)」以及「GPIO4=j7、GPIO5=j9、GPIO8=j11、GPIO9=j13」<b>全部作废</b>，以本节为准。</div>
+
+  <h3>插入方向（拍板）</h3>
+  <div class="good">🔧 <b>B 排（印 <code>01 02 … 14 RST 3V3</code> 的那一排）朝 a–e 侧 → 落 d 列</b>；<b>A 排（印 <code>46 45 … BOOT 5V 5V 5V GND</code> 的那排）朝 f–j 侧 → 落 h 列</b>。<b>引脚 1 靠右端（第 24 行），引脚 20 靠左端（第 5 行）</b>——这样 USB-C 口朝右（远离左端 MB102，互不打架；MB102 占第 1–3 行，开发板占第 5–24 行）。<br>⇒ <b>行号公式：第 n 脚 = 第 <code>25 − n</code> 行</b>（第 1 脚 = 第 24 行，第 20 脚 = 第 5 行）。</div>
+  <div class="note">💡 为什么让 B 排落 d 列：本项目用的信号（GPIO4/5/8/9、3V3、GND）<b>全在 B 排</b>，d 列（a–e 侧）又正好同侧挨着 OLED 与顶轨 3.3V，走线最短、跨槽最少。</div>
+
+  <h3>关键信号落点（本方案只用到这几个）</h3>
+  <table>
+    <tr><th>信号</th><th>板载脚位</th><th>落点</th><th>连到</th></tr>
+    <tr><td>GPIO4（挡光计数）</td><td>B 排第 4 脚</td><td><b>d21</b>（21 行 a–e 任取）</td><td>← 电平转换 A0（⑩）</td></tr>
+    <tr><td>GPIO5（按键）</td><td>B 排第 5 脚</td><td><b>d20</b></td><td>← 按键一根（⑮）</td></tr>
+    <tr><td>GPIO8（I²C SDA）</td><td>B 排第 9 脚</td><td><b>d16</b></td><td>→ OLED SDA（⑬）</td></tr>
+    <tr><td>GPIO9（I²C SCL）</td><td>B 排第 10 脚</td><td><b>d15</b></td><td>→ OLED SCL（⑭）</td></tr>
+    <tr><td>3V3（顶轨电源）</td><td>B 排第 17 / 18 / 19 脚</td><td><b>d8 / d7 / d6</b></td><td>→ 顶 + 轨（①，落 <b>a8</b>）</td></tr>
+    <tr><td>GND（顶轨地）</td><td>B 排第 7 / 20 脚</td><td><b>d18 / d5</b></td><td>→ 顶 − 轨（②，落 <b>a18</b>）</td></tr>
+  </table>
+  <div class="note">💡 <b>为什么用 a8 / a18 落线？</b>同一「行」的 a–e 五孔是连通的——第 8 行的 a8 与开发板 3V3 脚 d8 同电位。接顶轨时直接用最靠轨的 a 列孔，省线、不跨线。要接 d21 就在第 21 行任取 a–e 孔，以此类推。</div>
+  <div class="note">🔌 <b>V2（用 MB102）时板载 5V 脚（A 排第 17–19 脚 = h8/h7/h6）不用</b>——5V 域交由 MB102 专供，避免两路 5V 打架。<b>若改采 §〇.7 单电源方案，则反过来用板载 5V 脚供给底轨</b>，MB102 整块拔除。<b>BOOT（A 排第 16 脚 = h9）始终不接</b>（板上已有 BOOT 按钮，下载时用它）。</div>
+</div>
+
+<!-- 单电源可行性 -->
+<div class="card">
+  <h2>〇.7 不用 MB102、全由 ESP32 供电可行吗？（单电源方案）</h2>
+  <p>问题本质：能否把 V2 里「底轨 5V 由 MB102 专供」改成「底轨 5V 也由 ESP32 开发板的 5V 脚供给」，从而<b>拔掉 MB102、整板只留一根 USB-C 线</b>。结论：<b>完全可行，且更简单</b>。下面给论据与改法。</p>
+
+  <h3>为什么可行（电气事实）</h3>
+  <table>
+    <tr><th>事实</th><th>说明</th></tr>
+    <tr><td>本板自带 5V 脚</td><td>立创 ESP32-S3（A 排 17–19 脚 = <b>h8 / h7 / h6</b>）就是 USB VBUS 直出的 <b>5V</b> 输出脚（经保护二极管，实测约 4.7–5.0V）。它本来就在板上，V2 只是为「不混入第二路 5V」而没用。</td></tr>
+    <tr><td>3.3V 域本来就是 ESP32 供</td><td>V2 顶轨 3.3V 已从 ESP32 3V3 脚（d8）取，没变。单电源只是把 5V 源从 MB102 换成板载 5V 脚，<b>两域仍同源（同一颗 USB）</b>。</td></tr>
+    <tr><td>负载极小，余量巨大</td><td>全系统稳态电流仅约 <b>0.2–0.35 A</b>（见下方电流预算），任意 USB 口（≥0.5A）都绰绰有余。</td></tr>
+  </table>
+
+  <h3>电流预算（实测级估算）</h3>
+  <table>
+    <tr><th>支路</th><th>电压</th><th>典型电流</th><th>峰值</th></tr>
+    <tr><td>ESP32-S3（WiFi 活跃）</td><td>3.3V</td><td>~150 mA</td><td>~300 mA</td></tr>
+    <tr><td>1.3″ SH1106 OLED</td><td>3.3V</td><td>~20 mA</td><td>~25 mA</td></tr>
+    <tr><td>电平转换 VCCA 侧</td><td>3.3V</td><td>~1 mA</td><td>—</td></tr>
+    <tr><td><b>3.3V 域合计</b></td><td></td><td><b>~171 mA</b></td><td><b>~325 mA</b></td></tr>
+    <tr><td>光电门 IR-LED（5V 专用）</td><td>5V</td><td>~30 mA</td><td>~30 mA</td></tr>
+    <tr><td>电平转换 VCCB 侧</td><td>5V</td><td>~1 mA</td><td>—</td></tr>
+    <tr><td><b>5V 域合计</b></td><td></td><td><b>~31 mA</b></td><td><b>~31 mA</b></td></tr>
+    <tr><td><b>USB 总取流</b></td><td>5V(VBUS)</td><td><b>~202 mA</b></td><td><b>~356 mA</b></td></tr>
+  </table>
+  <div class="good">✅ 3.3V LDO 线性压差 (5−3.3)×0.17 ≈ 0.29W（峰值 0.55W），立创板载稳压（通常 ≥500mA 级）完全扛得住；USB 口 500mA 下限仍有 ~1.4× 余量，用充电头/笔记本口都稳。</div>
+
+  <h3>与 V2 的接线差异（只改 3 处）</h3>
+  <table>
+    <tr><th>项目</th><th>V2（用 MB102）</th><th>单电源（不用 MB102）</th></tr>
+    <tr><td>5V 源</td><td>MB102 模块落底轨左端</td><td><b>新增一根线：ESP32 5V 脚（h8）→ 底+ 左端</b>（取代 MB102 落在底轨的 5V 输出）</td></tr>
+    <tr><td>③ 共地桥（顶−↔底−）</td><td>条件线（MB102 可能已短接两轨 −）</td><td><b>改为必接</b>：去掉模块后两轨 − 不再被短接，必须自己桥（或 d5 再引一根 GND 到 底−）</td></tr>
+    <tr><td>⑰⑱ 顶+/底+ 中段桥</td><td>必接（面包板物理断点）</td><td>必接（与电源模块无关，照旧）</td></tr>
+    <tr><td>第二根 USB 线</td><td>MB102 独立 USB 供电</td><td><b>省掉</b>，全板只一根 USB-C</td></tr>
+    <tr><td>① 3V3(d8)→顶+、② GND(d18)→顶−、④⑦ 底轨、⑩⑬⑭⑮ 信号</td><td>不变</td><td>不变</td></tr>
+  </table>
+
+  <div class="good">🔧 <b>单电源接线口诀：</b>① 3V3(d8)→顶+；② GND(d18)→顶−；<b>新线：5V(h8)→底+ 左端</b>；③ 顶−↔底− 必桥；④ 光电门 VCC→底+；⑦ VCCB→底+；⑰⑱ 中段桥照旧；其余信号线全不变。<br>⚠️ 单电源方案下请<b>通过 USB-C 给板子供电</b>（此时 5V 脚作输出）；不要再从 5V 脚反向灌电。</div>
+
+  <h3>需要注意的 4 点</h3>
+  <div class="note">
+    1) <b>单点供电</b>：全部依赖这一根 USB-C 线/头，断一根全板停。但本 proj 总电流仅 0.2–0.35A，普通线材/充电头都行，风险极低。<br>
+    2) <b>板载 5V 脚是 VBUS</b>（经保护二极管 ~4.7–5.0V），光电门 5V 标称仍在其容差内；<b>千万别再从别处灌 5V</b>（当初引入 MB102 正是怕「两路 5V 打架」，现在只剩一路，反而不用担心）。<br>
+    3) <b>③ 从条件变必接</b>：务必把顶−（ESP32 GND）与底−（光电门/电平转换 GND）接通，否则 5V 域地悬空、计数乱跳。<br>
+    4) <b>失去 MB102 的螺丝端子/桶形座独立 5V 入口与双电源冗余</b>；若以后要带大电流外设（电机、大屏、多传感器）再外接 MB102/独立 5V，当前不需要。
+  </div>
+
+  <div class="good">✅ <b>结论：可行，且更省事（少一个模块、少一根线、少一处极性/共地坑）。推荐作为默认方案；V2（MB102）留作「需要更大 5V 电流时的备选」。</b>采用单电源后，§〇.5 的 MB102 正插/跳线设置整段不再适用；底轨 5V 直接由板载 5V 脚供给，红印=正仍对应底+，无需极性实测（来源唯一且已知）。</div>
+</div>
+
+<!-- 通断规则 -->
+<div class="card">
+  <h2>一、830 面包板内部通断规则（30 秒看懂）</h2>
+  <table>
+    <tr><th>区域</th><th>连通规则</th></tr>
+    <tr><td>中列区 a–e 列</td><td><b>同一行的 a、b、c、d、e 五孔互相连通</b>；不同行之间完全不连</td></tr>
+    <tr><td>中列区 f–j 列</td><td>同一行的 f、g、h、i、j 五孔连通；与左侧 a–e 被中间槽隔断</td></tr>
+    <tr><td>顶部电源轨</td><td>V2 中作为 <b>3.3V 域</b>：由 ESP32 3V3 供电（线①），<b>整条必须导通</b>（本板中段断开 → 需 ⑰ 桥线）</td></tr>
+    <tr><td>底部电源轨</td><td>V2 中作为 <b>5V 域</b>：由 MB102 供电，<b>整条必须导通</b>（本板中段断开 → 需 ⑱ 桥线）</td></tr>
+  </table>
+  <div class="danger">🚫 <b>正插锁定：红 = 正、蓝 = 负（已规定 §〇.5 正插）</b>。接线表里的「顶+ / 顶− / 底+ / 底−」就是印刷红 / 蓝轨，<b>颜色即真理</b>，无需实测极性。唯一要确认的是装模块时模块的 +/− 标记正对红 / 蓝线（正插）。</div>
+  <div class="good">💡 <b>推公式找行号（本板）：</b>引脚 1 插在第 <b>24</b> 行，则第 n 个引脚落在第 <code>25−n</code> 行（引脚 20 = 第 5 行）。也可直接查 §〇.6 的落点表。插好后对着丝印逐个数一遍，再接线。</div>
+</div>
+
+<!-- 双电源轨架构 -->
+<div class="card">
+  <h2>二、双电源轨架构（V2 核心）</h2>
+  <div class="chain">
+    <div class="box" style="background:#e8f0ff;border:2px solid #2b6cff;color:#1b3a8f">顶轨 3.3V 域<br><span style="font-weight:400;font-size:12px">ESP32 3V3 · OLED · 电平转换 VCCA</span></div>
+    <div class="arrow">⇄ 共地（③号桥线）</div>
+    <div class="box" style="background:#fdeee0;border:2px solid #d6453d;color:#a33">底轨 5V 域（红印=正）<br><span style="font-weight:400;font-size:12px">MB102 电源模块 · 光电门 VCC · 电平转换 VCCB</span></div>
+  </div>
+  <p><b>信号链（唯一跨越两域的信号）：</b></p>
+  <div class="chain">
+    <div class="box" style="background:#fff4e0;border:2px solid #d97706;color:#92600a">光电门 OUT<br><span style="font-weight:400;font-size:12px">空闲 5V / 遮挡 0V</span></div>
+    <div class="arrow">──⑥──▶</div>
+    <div class="box" style="background:#f3e8ff;border:2px solid #7c3aed;color:#5b21b6">B0 ▸ BSS138 ▸ A0<br><span style="font-weight:400;font-size:12px">5V 逻辑 → 3.3V 逻辑</span></div>
+    <div class="arrow">──⑩──▶</div>
+    <div class="box" style="background:#e8f0ff;border:2px solid #2b6cff;color:#1b3a8f">GPIO4<br><span style="font-weight:400;font-size:12px">空闲 3.3V / 遮挡 0V</span></div>
+  </div>
+  <table>
+    <tr><th>要点</th><th>说明</th></tr>
+    <tr><td>MB102 电源模块设置</td><td><b>顶跳线拨 OFF、底跳线拨 5V</b>；模块插在面包板<b>左端（第 1 行端，不挪动）</b>电源轨上，用自带 USB 口接充电头 / 充电宝供电（USB 输入 5V，DC 头则需 7–12V）。已规定「正插」（见 §〇.5），<b>红 = 正、蓝 = 负锁定，无需实测极性</b></td></tr>
+    <tr><td>VCCA 必接顶+</td><td>8 路模块<b>无板载 3.3V 稳压输出</b>，VCCA 就是电源输入脚，必须接顶+（区别于某些 4 路款的 3V3 输出脚需悬空）</td></tr>
+    <tr><td>VCCA / VCCB 不可接反</td><td>接反 = 电平翻译失效，GPIO4 可能吃到 5V</td></tr>
+    <tr><td>两域必须共地</td><td>顶−（ESP32 GND）与底−（MB102 GND）之间接③号桥线；不共地 = 计数乱跳或完全不工作</td></tr>
+    <tr><td>只用 A0/B0 一路</td><td>A1–A7、B1–B7 全部悬空即可；模块两排各有一个 GND 脚，内部相通，⑨接任意一个即可（求稳两个都接）</td></tr>
+  </table>
+  <div class="danger">🚫 <b>两条铁律：</b>① 光电门 <b>严禁接顶轨 3.3V</b>（5V 专用，接 3.3V 不工作甚至损坏）；② MB102 <b>顶跳线必须拨 OFF</b>——若误拨 5V，顶轨会被灌入 5V，直接威胁 ESP32 和 OLED。</div>
+</div>
+
+<!-- 摆放总图 -->
+<div class="card">
+  <h2>三、元件摆放总图</h2>
+  <svg viewBox="0 0 780 620" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+    <!-- breadboard body -->
+    <rect x="60" y="60" width="600" height="530" rx="8" fill="#fbfbf7" stroke="#c9cec6" stroke-width="2"/>
+    <!-- top rails = 3.3V domain -->
+    <line x1="80" y1="86" x2="640" y2="86" stroke="#d6453d" stroke-width="3"/>
+    <text x="66" y="90" font-size="12" fill="#d6453d" font-weight="700">+</text>
+    <text x="592" y="78" font-size="11" fill="#d6453d" font-weight="700">顶+ = 3.3V</text>
+    <line x1="80" y1="104" x2="640" y2="104" stroke="#2b6cff" stroke-width="3"/>
+    <text x="66" y="108" font-size="12" fill="#2b6cff" font-weight="700">−</text>
+    <text x="592" y="120" font-size="11" fill="#2b6cff" font-weight="700">顶−</text>
+    <!-- bottom rails = 5V domain -->
+    <line x1="80" y1="546" x2="640" y2="546" stroke="#2b6cff" stroke-width="3"/>
+    <text x="66" y="550" font-size="12" fill="#2b6cff" font-weight="700">−</text>
+    <text x="592" y="538" font-size="11" fill="#2b6cff" font-weight="700">底−</text>
+    <line x1="80" y1="564" x2="640" y2="564" stroke="#d6453d" stroke-width="3.5"/>
+    <text x="66" y="568" font-size="12" fill="#d6453d" font-weight="700">+</text>
+    <text x="592" y="580" font-size="11" fill="#d6453d" font-weight="700">底+ = 5V（红印=正）</text>
+    <!-- MB102 power module (LEFT end, 不挪动) -->
+    <rect x="84" y="112" width="84" height="424" rx="8" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2"/>
+    <text x="126" y="300" text-anchor="middle" font-size="12" font-weight="700" fill="#5b21b6">MB102</text>
+    <text x="126" y="318" text-anchor="middle" font-size="11" fill="#5b21b6">电源模块</text>
+    <text x="126" y="334" text-anchor="middle" font-size="10" fill="#7c3aed">顶跳线 OFF</text>
+    <text x="126" y="348" text-anchor="middle" font-size="10" fill="#7c3aed">底跳线 5V</text>
+    <text x="126" y="362" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b48">正插 红+=蓝− ✅</text>
+    <text x="126" y="378" text-anchor="middle" font-size="10" fill="#7c3aed">USB 独立供电</text>
+    <text x="126" y="392" text-anchor="middle" font-size="10" fill="#7c3aed">本体横跨约 3 行</text>
+    <text x="126" y="408" text-anchor="middle" font-size="10" font-weight="700" fill="#7c3aed">现插左端(第1行端)</text>
+    <!-- center groove -->
+    <rect x="80" y="290" width="560" height="8" fill="#dfe3da"/>
+    <text x="300" y="286" font-size="11" fill="#888">中间槽（跨槽不通）</text>
+    <!-- row ruler -->
+    <text x="88" y="132" font-size="10" fill="#999">1</text>
+    <text x="120" y="132" font-size="10" fill="#999">5</text>
+    <text x="160" y="132" font-size="10" fill="#999">9</text>
+    <text x="240" y="132" font-size="10" fill="#999">20</text>
+    <text x="292" y="132" font-size="10" fill="#999">30</text>
+    <text x="340" y="132" font-size="10" fill="#999">32</text>
+    <text x="392" y="132" font-size="10" fill="#999">38</text>
+    <text x="420" y="132" font-size="10" fill="#999">42</text>
+    <text x="540" y="132" font-size="10" fill="#999">61</text>
+    <!-- column labels -->
+    <text x="76" y="152" font-size="11" fill="#999">a–e（槽上）</text>
+    <text x="76" y="316" font-size="11" fill="#999">f–j（槽下）</text>
+
+    <!-- Photogate (RIGHT end, 避让左侧模块) -->
+    <rect x="540" y="140" width="100" height="46" rx="6" fill="#fff4e0" stroke="#d97706" stroke-width="2"/>
+    <text x="550" y="158" font-size="12" font-weight="700" fill="#92600a">对射式光电门（5V专用）</text>
+    <text x="550" y="176" font-size="10.5" fill="#666">c61–c63 · VCC GND OUT 丝印朝上</text>
+
+    <!-- ESP32 rows5-24 -->
+    <rect x="180" y="192" width="250" height="88" rx="6" fill="#e8f0ff" stroke="#2b6cff" stroke-width="2.5"/>
+    <text x="305" y="211" text-anchor="middle" font-size="13" font-weight="700" fill="#1b3a8f">ESP32-S3 开发板（2×20 跨中间槽）</text>
+    <text x="305" y="228" text-anchor="middle" font-size="10.5" fill="#555">d 列 = B 排（GPIO1–14 / GND / RST / 3V3）</text>
+    <text x="305" y="243" text-anchor="middle" font-size="10.5" fill="#555">h 列 = A 排（GPIO46… / BOOT / 5V / GND）</text>
+    <text x="305" y="258" text-anchor="middle" font-size="10.5" fill="#555">第 5–24 行 · 脚 1 在右(行24) · USB 朝右</text>
+    <text x="190" y="274" font-size="10" fill="#c0392b">d列信号：4=d21 5=d20 8=d16 9=d15 3V3=d8 GND=d18</text>
+
+    <!-- Level shifter rows38-47 -->
+    <rect x="180" y="418" width="290" height="72" rx="6" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2"/>
+    <text x="190" y="438" font-size="12" font-weight="700" fill="#5b21b6">8 路电平转换模块（BSS138）· 行 38–47</text>
+    <text x="190" y="456" font-size="10.5" fill="#666">上排：VCCA GND A0–A7（3.3V 侧）</text>
+    <text x="190" y="472" font-size="10.5" fill="#666">下排：VCCB GND B0–B7（5V 侧）· 仅用 A0/B0</text>
+
+    <!-- USB protrusion -->
+    <text x="438" y="234" font-size="10" fill="#888">USB-C 外伸 ≈ 第 25–27 行</text>
+    <!-- OLED rows30-33 -->
+    <rect x="180" y="330" width="180" height="62" rx="6" fill="#e7f7ee" stroke="#0aa06e" stroke-width="2"/>
+    <text x="190" y="350" font-size="12" font-weight="700" fill="#0a6b48">1.3″ OLED（4针 SH1106·已焊排针）</text>
+    <text x="190" y="366" font-size="10.5" fill="#666">c30–c33 · 丝印 GND-VCC-SCL-SDA（右移避让 USB）</text>
+    <text x="190" y="382" font-size="10.5" fill="#666">c30=GND c31=VCC c32=SCL c33=SDA</text>
+
+    <!-- Button -->
+    <rect x="440" y="330" width="130" height="46" rx="6" fill="#eef3ff" stroke="#2b6cff" stroke-width="2"/>
+    <text x="505" y="350" text-anchor="middle" font-size="12" font-weight="700" fill="#1b3a8f">轻触按键（悬空）</text>
+    <text x="505" y="366" text-anchor="middle" font-size="10.5" fill="#666">母对母线接对角两脚</text>
+
+    <!-- wires top domain (3.3V) -->
+    <path d="M 190 188 C 170 150, 150 110, 120 90" stroke="#d6453d" stroke-width="3" fill="none"/>
+    <text x="100" y="126" font-size="10.5" fill="#d6453d">①红 3V3(a8)→顶+</text>
+    <path d="M 210 190 C 190 156, 170 122, 152 108" stroke="#333" stroke-width="3" fill="none"/>
+    <text x="158" y="150" font-size="10.5" fill="#333">②黑 GND(a18)→顶−</text>
+    <path d="M 190 422 C 180 300, 176 160, 170 90" stroke="#d6453d" stroke-width="3" fill="none"/>
+    <text x="174" y="330" font-size="10.5" fill="#d6453d">⑧红 VCCA→顶+</text>
+    <path d="M 190 334 C 182 240, 178 160, 176 106" stroke="#333" stroke-width="3" fill="none"/>
+    <text x="176" y="240" font-size="10.5" fill="#333">⑫黑 OLED GND→顶−</text>
+    <path d="M 208 334 C 202 260, 198 180, 196 90" stroke="#d6453d" stroke-width="3" fill="none"/>
+    <text x="200" y="200" font-size="10.5" fill="#d6453d">⑪红 OLED VCC→顶+</text>
+    <path d="M 304 334 C 350 320, 380 260, 398 246" stroke="#2b6cff" stroke-width="3" fill="none"/>
+    <text x="344" y="306" font-size="10.5" fill="#2b6cff">⑬蓝 SDA(c33)→GPIO8(d16)</text>
+    <path d="M 270 334 C 310 330, 340 280, 356 252" stroke="#0aa06e" stroke-width="3" fill="none"/>
+    <text x="276" y="312" font-size="10.5" fill="#0a6b48">⑭绿 SCL(c32)→GPIO9(d15)</text>
+    <path d="M 440 344 C 408 330, 378 280, 366 252" stroke="#e8b70a" stroke-width="3" fill="none"/>
+    <text x="384" y="336" font-size="10.5" fill="#b8860b">⑮黄母母 按键→GPIO5(d20)</text>
+    <path d="M 440 366 C 388 380, 308 260, 268 190" stroke="#333" stroke-width="3" fill="none"/>
+    <text x="400" y="384" font-size="10.5" fill="#333">⑯黑母母 按键→顶−</text>
+
+    <!-- wires bottom domain (5V) -->
+    <path d="M 560 186 C 540 300, 470 480, 420 560" stroke="#d6453d" stroke-width="3" fill="none"/>
+    <text x="470" y="420" font-size="10.5" fill="#d6453d">④红 光电门VCC→底+</text>
+    <path d="M 544 186 C 520 320, 470 500, 430 544" stroke="#333" stroke-width="3" fill="none"/>
+    <text x="450" y="450" font-size="10.5" fill="#333">⑤黑 光电门GND→底−</text>
+    <path d="M 560 176 C 480 220, 380 340, 210 470" stroke="#e8b70a" stroke-width="3" fill="none"/>
+    <text x="400" y="300" font-size="10.5" fill="#b8860b">⑥黄 光电门OUT→B0</text>
+    <path d="M 200 490 C 160 510, 130 530, 100 546" stroke="#333" stroke-width="3" fill="none"/>
+    <text x="118" y="500" font-size="10.5" fill="#333">⑨黑 模块GND→底−</text>
+    <path d="M 205 485 C 160 520, 130 545, 105 562" stroke="#d6453d" stroke-width="3" fill="none"/>
+    <text x="118" y="525" font-size="10.5" fill="#d6453d">⑦红 VCCB→底+</text>
+    <path d="M 195 418 C 280 380, 370 270, 428 176" stroke="#e8b70a" stroke-width="3" fill="none"/>
+    <text x="288" y="400" font-size="10.5" fill="#b8860b">⑩黄 A0→GPIO4(d21)</text>
+    <!-- conditional bridge -->
+    <path d="M 92 108 C 78 300, 78 400, 92 542" stroke="#333" stroke-width="3" fill="none" stroke-dasharray="7 5"/>
+    <text x="70" y="336" font-size="10.5" fill="#333" transform="rotate(90 70 336)">③条件 顶−→底−(共地)</text>
+  </svg>
+
+  <table>
+    <tr><th>元件</th><th>插孔位置</th><th>说明</th></tr>
+    <tr><td>ESP32-S3 开发板<br><span class="muted">2×20 针 · DIP-40 / 0.6″</span></td><td>跨中间槽：<b>d 列（B 排）</b> 与 <b>h 列（A 排）</b>，第 <code>5–24</code> 行</td><td><b>B 排朝 a–e 侧 → 落 d 列；A 排朝 f–j 侧 → 落 h 列</b>；<b>脚 1 靠右端（第 24 行）</b>，让 USB-C 朝右、避开左端 MB102。先干插试摆，能稳定插住即可（批次差异下 d/h 或 c/g 类都属正常，以「6 个孔距」为准）</td></tr>
+    <tr><td>对射式光电门</td><td>3 针插 <code>c61–c63</code>（右端）</td><td><b>5V 专用</b>；丝印序到货逐针认（历史有 GND-OUT-VCC / OUT-GND-VCC 两种）；因模块固定在第 1 行端，光电门改到右端避让</td></tr>
+    <tr><td>1.3″ OLED</td><td>4 针插 <code>c30–c33</code></td><td>以实物丝印 <b>GND-VCC-SCL-SDA</b> 为准：c30=GND、c31=VCC、c32=SCL、c33=SDA（模块 I²C 4 针、已焊排针）。<b>因开发板 USB-C 外伸到第 25–27 行，OLED 改从第 30 行起，避让 USB 口</b></td></tr>
+    <tr><td>8 路电平转换</td><td>两排 10+10 脚，试摆 <b>行 38–47</b> 跨槽</td><td>多数 0.6″ 排距款正好跨进槽两侧；插不进就平放板边、用杜邦线把各脚引到空行并贴标签；<b>必选已焊排针款</b></td></tr>
+    <tr><td>MB102 电源模块</td><td>插面包板<b>左端（第 1 行端，即你现在的位置）</b>的电源轨，本体横跨约 <b>3 行</b>，不挪动</td><td><b>正插</b>（模块 +/− 标记对齐红/蓝线）、顶跳线 <b>OFF</b>、底跳线 <b>5V</b>；USB 口朝外接充电头/充电宝。<b>挡住第 1 行端孔位，故光电门改到右端 c61–c63</b></td></tr>
+    <tr><td>轻触按键</td><td><b>不插板</b>，对角两脚用母对母线引出</td><td>按下导通的那对；可用双面胶贴在板边</td></tr>
+  </table>
+  <div class="note">🎨 示意图约定：<b>红线 = 所有「+」轨（顶 3.3V / 底 5V），蓝线 = 所有「−」轨</b>；3.3V 域与 5V 域靠「顶轨 / 底轨」位置区分，不靠颜色。正插锁定后板子红印=正、蓝印=负，与图完全一致。</div>
+</div>
+
+<!-- 逐根接线表 -->
+<div class="card">
+  <h2>四、逐根接线清单 V2（15 必接 + 3 桥线 = 18 根；桥线本板均需接）</h2>
+  <table>
+    <tr><th>#</th><th>线色</th><th>从</th><th>到</th><th>作用 / 电源域</th></tr>
+    <tr><td>①</td><td><span class="dot" style="background:#d6453d"></span>红</td><td>ESP32 <code>3V3</code>（<b>d8</b>，落 <code>a8</code>）</td><td>顶 + 轨</td><td>主控输出 3.3V 给顶域</td></tr>
+    <tr><td>②</td><td><span class="dot" style="background:#333"></span>黑</td><td>ESP32 <code>GND</code>（<b>d18</b>，落 <code>a18</code>）</td><td>顶 − 轨</td><td>主控共地</td></tr>
+    <tr><td>③</td><td><span class="dot" style="background:#333"></span>黑·条件</td><td>顶 − 轨</td><td>底 − 轨</td><td><b>两域共地桥</b>：MB102 装好后量顶−对底−，已导通则免接</td></tr>
+    <tr><td>④</td><td><span class="dot" style="background:#e67e22"></span>红</td><td>光电门 VCC 行</td><td><b>底 + 轨（5V）</b></td><td>光电门供电（5V 专用，禁接顶轨！）</td></tr>
+    <tr><td>⑤</td><td><span class="dot" style="background:#333"></span>黑</td><td>光电门 GND 行</td><td>底 − 轨</td><td>光电门共地</td></tr>
+    <tr><td>⑥</td><td><span class="dot" style="background:#e8b70a"></span>黄</td><td>光电门 OUT 行</td><td><b>B0</b> 所在行同条空孔</td><td>挡光信号（5V 逻辑）进电平转换</td></tr>
+    <tr><td>⑦</td><td><span class="dot" style="background:#e67e22"></span>红</td><td><b>VCCB</b> 行</td><td>底 + 轨</td><td>电平转换 5V 侧供电</td></tr>
+    <tr><td>⑧</td><td><span class="dot" style="background:#d6453d"></span>红</td><td><b>VCCA</b> 行</td><td><b>顶 + 轨（3.3V）</b></td><td>电平转换 3.3V 侧供电（必接，模块无板载稳压）</td></tr>
+    <tr><td>⑨</td><td><span class="dot" style="background:#333"></span>黑</td><td>电平转换 GND 行</td><td>底 − 轨</td><td>模块共地（两排 GND 内部相通，接一个即可）</td></tr>
+    <tr><td>⑩</td><td><span class="dot" style="background:#e8b70a"></span>黄</td><td><b>A0</b> 行同条空孔</td><td><b>GPIO4（<code>d21</code>）</b></td><td>翻译后的 3.3V 挡光信号 → 单片机</td></tr>
+    <tr><td>⑪</td><td><span class="dot" style="background:#d6453d"></span>红</td><td>OLED VCC 行（a31）</td><td>顶 + 轨</td><td>OLED 供电（3.3V 域）</td></tr>
+    <tr><td>⑫</td><td><span class="dot" style="background:#333"></span>黑</td><td>OLED GND 行（a30）</td><td>顶 − 轨</td><td>OLED 共地</td></tr>
+    <tr><td>⑬</td><td><span class="dot" style="background:#2b6cff"></span>蓝</td><td>OLED SDA 行（<b>c33</b>）</td><td><b>GPIO8（<code>d16</code>）</b></td><td>I²C 数据</td></tr>
+    <tr><td>⑭</td><td><span class="dot" style="background:#0aa06e"></span>绿</td><td>OLED SCL 行（<b>c32</b>）</td><td><b>GPIO9（<code>d15</code>）</b></td><td>I²C 时钟</td></tr>
+    <tr><td>⑮</td><td><span class="dot" style="background:#e8b70a"></span>黄·母对母</td><td>母头夹按键脚 1</td><td>公头插 <b>GPIO5（<code>d20</code>）</b></td><td>按键输入</td></tr>
+    <tr><td>⑯</td><td><span class="dot" style="background:#333"></span>黑·母对母</td><td>母头夹按键脚 2</td><td>公头插顶 − 轨</td><td>按键回路</td></tr>
+    <tr><td>⑰</td><td><span class="dot" style="background:#d6453d"></span>红·<b>本板必接</b></td><td>顶 + 轨左端</td><td>顶 + 轨右端</td><td>本板电源轨中段断开（卖家已确认）→ 桥接顶+；<b>顶− 轨同理补一根黑线桥</b></td></tr>
+    <tr><td>⑱</td><td><span class="dot" style="background:#e67e22"></span>红·<b>本板必接</b></td><td>底 + 轨左端</td><td>底 + 轨右端</td><td>桥接底+（MB102 供电距离长）；<b>底− 轨同理补一根黑线桥</b></td></tr>
+  </table>
+
+  <div class="good">
+    <b>红黑域规则（复查口诀）：</b>红线只允许出现在 {顶+域：①⑪⑧} 和 {底+域：④⑦} 两个圈子里；黑线全部归 − 轨（②⑤⑨⑫⑯ + 条件③）；<b>同一行上红线和黑线绝不碰面</b>。
+  </div>
+
+  <div class="good">
+    <b>「GPIO x 所在行」怎么找？</b>三步：<br>
+    1) 在板子<b>丝印</b>上认出引脚序号（B 排 <code>01 … 14 RST 3V3</code> / A 排 <code>46 … 48 BOOT 5V</code>）；<br>
+    2) 用公式换算行号：第 1 脚 = 第 <b>24</b> 行，则第 n 脚 = 第 <code>25−n</code> 行；<br>
+    3) 该行的其它空孔（同条 a–e 五孔内任一）就是接线点，<b>绝不能插到相邻行</b>。<br>
+    本板实测参考：GPIO4=<b>d21</b>、GPIO5=<b>d20</b>、GPIO8=<b>d16</b>、GPIO9=<b>d15</b>、3V3=<b>d8</b>、GND=<b>d18</b>（详见 §〇.6）——<b>旧交接文档里的 j7/j9/j11/j13 已作废</b>，以本节 + 实物丝印为准。
+  </div>
+
+  <div class="note">⚠️ 杜邦线两端都要插到底，虚接是新手最常见的「程序没问题但不工作」原因。③号共地桥在 MB102 装好后再决定接不接——先量，导通就不接。</div>
+</div>
+
+<!-- 到货自检 -->
+<div class="card">
+  <h2>五、到货自检：「丝印四认」</h2>
+  <table>
+    <tr><th>器件</th><th>要认什么</th><th>注意事项</th></tr>
+    <tr><td>光电门</td><td>3 针丝印顺序（VCC/GND/OUT）</td><td>历史有两种：GND-OUT-VCC / OUT-GND-VCC，<b>以实物为准</b>；确认是 5V 供电款；挡光片过槽 ≤12mm、不透光</td></tr>
+    <tr><td>OLED</td><td>4 针丝印顺序</td><td>本轮实物为 GND-VCC-SCL-SDA；驱动芯片 <b>SH1106</b>（1.3″ 屏专用），<b>需 SH1106 专用库</b>（Adafruit_SH1106 或 U8g2），<b>不可</b>直接用 SSD1306 库；I²C 地址 0x3C（失败试 0x3D）；模块 I²C 4 针、已焊排针</td></tr>
+    <tr><td>电平转换模块</td><td>VCCA / VCCB / A0 / B0 位置</td><td><b>必须已焊排针</b>（散针版要么退货要么补焊）；认准 A0/B0 与其它 A1–A7/B1–B7 的位置区别</td></tr>
+    <tr><td>轻触按键</td><td>「对角导通」的两脚</td><td>用万用表通断档确认：按下导通、松开断开的那一对</td></tr>
+  </table>
+</div>
+
+<!-- 分步装配 -->
+<div class="card">
+  <h2>六、分步装配与验证（每步都验，最后通电）</h2>
+  <div class="step"><b>第 0 步 · 正插锁定（见 §〇.5）：</b>MB102 <b>正插</b>（模块 +/− 标记正对红 / 蓝线）、<b>插在第 1 行端（即你现在的位置，不挪动）</b>，顶跳线 OFF、底跳线 5V → 红=正蓝=负即锁定。万用表<b>通断档</b>量底+ 轨是否中段断开（本板要补 ⑱，− 轨同理补黑桥）。断电后再进入第 1 步。<b>极性不用量、不用贴标签。</b></div>
+  <div class="step"><b>第 1 步 · 断电插主控：</b>确认两根 USB 均未接。<b>B 排（印 <code>01 … 14 RST 3V3</code>）朝 a–e 侧 → 落 d 列；A 排朝 f–j 侧 → 落 h 列；脚 1 靠右端（第 24 行）</b>，跨插中间槽占第 <b>5–24 行</b>，USB-C 朝右（避开左端 MB102）。核对每脚入孔、无弯脚悬空。</div>
+  <div class="step"><b>第 2 步 · 标行号：</b>对照丝印标出 <b>d21=GPIO4、d20=GPIO5、d16=GPIO8、d15=GPIO9、d8=3V3、d18=GND</b>（公式 <code>25−n</code>）。这步最容易错，务必数两遍。</div>
+  <div class="step"><b>第 3 步 · 插电平转换模块：</b>行 38–47 试摆跨槽；贴便利贴标出 VCCA 侧（朝顶轨方向）和 VCCB 侧（朝底轨方向），防止接反。</div>
+  <div class="step"><b>第 4 步 · 接顶轨域：</b>插 ①②（3V3→顶+、GND→顶−）、⑧（VCCA→顶+）、⑪⑫（OLED 电源）。<b>验证：</b>顶+ 对顶− 不导通；3V3 行对顶+ 导通；VCCA 行对顶+ 导通。</div>
+  <div class="step"><b>第 5 步 · 插 OLED 并接信号：</b>按丝印 GND-VCC-SCL-SDA 插 <b>c30–c33</b>（c30=GND、c31=VCC、c32=SCL、c33=SDA；USB-C 占用右端 25–27 行，故 OLED 移到 30–33 行避让），接 ⑬（SDA→GPIO8 即 <b>d16</b>）、⑭（SCL→GPIO9 即 <b>d15</b>）。SDA/SCL 别接反。</div>
+  <div class="step"><b>第 6 步 · 接按键：</b>对角两脚先确认「按下导通」，再接 ⑮⑯。</div>
+  <div class="step"><b>第 7 步 · 插光电门并接底轨域：</b>光电门插 <b>c61–c63（右端，避让左侧模块）</b>（丝印逐针认），接 ④（VCC→<b>底+</b>）、⑤（GND→底−）、⑥（OUT→B0 行，线加长）；再接 ⑦（VCCB→底+）、⑨（模块 GND→底−）。<b>再三确认光电门没有接到顶轨。</b></div>
+  <div class="step"><b>第 8 步 · 桥接 + 共地复查：</b>按第 0 步记录补 ⑰（顶+ 中段）⑱（底+ 中段）；− 轨若分段同样补黑线桥。万用表量顶− 对底−：导通则免接③（模块已内部共地），不导通则插③号共地桥。</div>
+  <div class="step"><b>第 9 步 · 通电前复查：</b>按红黑域口诀过一遍所有线；万用表电阻档测顶+对顶−、底+对底− 均 &gt;1kΩ；顶+ 对 底+ &gt;1kΩ。</div>
+  <div class="step"><b>第 10 步 · 先上 3.3V 域：</b>只插 ESP32 的 USB。预期：顶+ ≈ 3.3V、OLED 亮并显示「[待机]」、A0 行 ≈ 3.3V。若 OLED 不亮，先查 ⑪⑫⑬⑭。</div>
+  <div class="step"><b>第 11 步 · 再上 5V 域：</b>MB102 USB 接充电头。预期：底+ ≈ 5.0V、VCCB 行 ≈ 5V、VCCA 行仍 ≈ 3.3V、光电门 OUT 行 ≈ 5V。</div>
+  <div class="step"><b>第 12 步 · 验证电平翻译与联调：</b>万用表测 A0 行：无挡光 ≈ 3.3V、挡光 ≈ 0V → 说明⑥⑩正确。然后在光电门间手动挡一下光，OLED 的 <code>n</code> 计数 +1；按键开始/停止正常。通过后按主方案文档进行摆长设置与测量。</div>
+</div>
+
+<!-- 常见错误 -->
+<div class="card">
+  <h2>七、高频接线错误自查（V2 版）</h2>
+  <table>
+    <tr><th>症状</th><th>原因</th></tr>
+    <tr><td>光电门完全不工作</td><td>④接到了顶轨 3.3V（5V 专用件！）；或 MB102 底跳线没拨到 5V</td></tr>
+    <tr><td>上电瞬间 OLED 异常 / 板子发烫</td><td>MB102 顶跳线误拨 5V，顶轨被灌 5V——<b>立即断电</b>；或红线插进 − 轨</td></tr>
+    <tr><td>挡光不计数</td><td>⑥/⑩ 插错行；A0/B0 接反（应 OUT→B0、A0→GPIO4）；VCCA/VCCB 接反；DO 极性与代码相反（改代码 <code>== LOW</code> ↔ <code>== HIGH</code>）</td></tr>
+    <tr><td>计数乱跳 / 时准时不准</td><td>③号共地桥没接（两域不共地）；杜邦虚接；光路未对准</td></tr>
+    <tr><td>OLED 不亮但板子正常</td><td>SDA/SCL 接反；I²C 地址改试 0x3D；核对丝印序是 GND-VCC-SCL-SDA</td></tr>
+    <tr><td>按键无效</td><td>取了常通的一对脚；⑮⑯松脱</td></tr>
+    <tr><td>底轨末端电压不足 5V</td><td>底轨中段分段 → 加⑱号桥线；MB102 换粗短 USB 线</td></tr>
+    <tr><td>上电即烧 / 冒烟 / 主控发烫</td><td><b>电源模块反插（未正插）</b>导致轨道极性翻转 → 立即断电，把模块<b>拔下转 180° 重新正插</b>（模块 +/− 标记对齐红 / 蓝线）；同时查顶跳线是否被误拨 5V</td></tr>
+    <tr><td>一半电路有电、另一半没电</td><td>面包板中段断开未桥接 → 补 ⑰⑱（及 − 轨桥线）</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  本页为 <b>V2 双电源轨 · 方向锁定版</b>（MB102 已规定「正插」锁定红=正蓝=负，2026-10-01 更新）。<b>另见 §〇.7：经论证可不用 MB102、改由 ESP32 板载 5V 脚单电源供电（更省事，推荐默认）</b>。行号均为示例/参考值，落地以你的板子丝印为准——本方案给出「位置规则 + 逐线定义」。配套文档：《单摆测重力加速度全套方案.html》《面包板基础知识.html》《原料购买清单.html》。
+</div>
+
+</div>
+</body>
+</html>
