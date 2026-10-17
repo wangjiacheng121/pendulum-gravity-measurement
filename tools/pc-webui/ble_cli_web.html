@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>pendulum-g · 手机蓝牙终端（ble_cli 网页版）</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --line:#e3e8ef; --text:#1f2937; --muted:#6b7280;
+    --accent:#2563eb; --ok:#16a34a; --warn:#d97706; --err:#dc2626;
+    --mono:ui-monospace,'Cascadia Mono','JetBrains Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.6 system-ui,-apple-system,'HarmonyOS Sans SC','MiSans','Microsoft YaHei',sans-serif;}
+  .wrap{max-width:880px;margin:0 auto;padding:14px 12px 60px}
+  h1{font-size:20px;margin:6px 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin:12px 0;box-shadow:0 1px 3px rgba(16,24,40,.05)}
+  .card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;
+    background:#eef2f7;color:var(--muted);white-space:nowrap}
+  .chip.on{background:#dcfce7;color:#166534}
+  .chip.off{background:#fee2e2;color:#991b1b}
+  .chip.mid{background:#fef3c7;color:#92400e}
+  button{font:inherit;border:1px solid var(--line);background:#fff;color:var(--text);
+    border-radius:9px;padding:8px 14px;cursor:pointer;transition:.15s}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.danger{background:#fff;border-color:#fca5a5;color:var(--err)}
+  button.mini{padding:4px 10px;font-size:13px;border-radius:7px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .tip{color:var(--muted);font-size:12.5px;margin-top:8px}
+  /* 终端 */
+  #log{background:#0f172a;color:#d7e2ee;border-radius:10px;padding:10px;
+    font:12.5px/1.55 var(--mono);height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+  #log .sent{color:#7dd3fc}
+  #log .ok{color:#86efac}
+  #log .err{color:#fca5a5}
+  #log .info{color:#fcd34d}
+  #log .sys{color:#94a3b8}
+  #log .data{color:#e2e8f0}
+  .inputline{display:flex;gap:8px;margin-top:10px}
+  .inputline input{flex:1;font:14px var(--mono);padding:9px 12px;border:1px solid var(--line);
+    border-radius:9px;background:#fff;color:var(--text)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chips button{font:12.5px var(--mono);padding:5px 10px}
+  /* 表格 */
+  .tblwrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:10px}
+  table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+  th,td{border-bottom:1px solid var(--line);padding:6px 9px;text-align:right;white-space:nowrap}
+  th{position:sticky;top:0;background:#f1f5f9;font-weight:600;text-align:right}
+  td:first-child,th:first-child{text-align:left}
+  canvas{width:100%;border:1px solid var(--line);border-radius:9px;background:#fff;margin-top:10px}
+  .stat{display:inline-block;margin:2px 10px 2px 0;font:13px var(--mono);color:var(--muted)}
+  .stat b{color:var(--text)}
+  details{border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin:8px 0;background:#fafbfd}
+  summary{cursor:pointer;font-weight:600;font-size:14px}
+  details pre{background:#f1f5f9;border-radius:8px;padding:10px;overflow-x:auto;
+    font:12.5px/1.6 var(--mono)}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#111827;color:#fff;
+    padding:9px 18px;border-radius:9px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:99}
+  .toast.show{opacity:.95}
+  code{background:#eef2f7;border-radius:5px;padding:1px 6px;font:90% var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>pendulum-g · 手机蓝牙终端</h1>
+  <div class="sub">ble_cli.py 网页版 · Web Bluetooth · 单摆测g 固件配套工具（功能与 PC 版对齐，另加实时波形）</div>
+
+  <!-- 连接 -->
+  <div class="card">
+    <h2>连接 <span class="chip" id="modeChip">检测中…</span> <span class="chip off" id="connChip">未连接</span></h2>
+    <div class="row">
+      <button class="pri" id="btnConn">连接 pendulum-g</button>
+      <button id="btnReconn" disabled>重连上次设备</button>
+      <button id="btnDisc" disabled>断开</button>
+      <button id="btnScanAll">扫描全部设备</button>
+      <button id="btnSelfTest" hidden>服务自检（无板也能试）</button>
+    </div>
+    <div class="tip" id="devInfo">设备：—</div>
+    <div class="tip">首次连接会弹出系统蓝牙选择框，选中 <code>pendulum-g</code> 即可；扫不到时先确认开发板已上电、未被其它 App 占用。</div>
+  </div>
+
+  <!-- 终端 -->
+  <div class="card">
+    <h2>终端 <span class="tip" style="margin:0">所有菜单输出在此显示，照提示输入即可（与 PC 版操作完全一致）</span></h2>
+    <div id="log" role="log" aria-live="polite"></div>
+    <div class="inputline">
+      <input id="cmdInput" placeholder="输入命令或菜单项，如 3.2 / SIM ON / alt 500 / STREAM ON" autocomplete="off">
+      <button class="pri" id="btnSend">发送</button>
+    </div>
+    <div class="chips" id="chipRow1">
+      <button data-cmd="0">0 状态</button>
+      <button data-cmd="1">1 配网</button>
+      <button data-cmd="2">2 摆长</button>
+      <button data-cmd="3">3 历史</button>
+      <button data-cmd="4">4 天气</button>
+      <button data-cmd="q">q 退出会话</button>
+    </div>
+    <div class="chips" id="chipRow2">
+      <button data-cmd="APP 1">APP 1</button>
+      <button data-cmd="APP 2">APP 2</button>
+      <button data-cmd="APP 3">APP 3</button>
+      <button data-cmd="SIM ON">SIM ON</button>
+      <button data-cmd="SIM OFF">SIM OFF</button>
+      <button data-cmd="STREAM ON">STREAM ON</button>
+      <button data-cmd="STREAM OFF">STREAM OFF</button>
+    </div>
+  </div>
+
+  <!-- 历史导出 -->
+  <div class="card">
+    <h2>历史数据导出 <span class="chip" id="expChip">空闲</span></h2>
+    <div class="row">
+      <button data-cmd="3" class="mini">进入菜单 3</button>
+      <button data-cmd="3.1" class="mini">3.1 预览</button>
+      <button data-cmd="3.2" class="mini">3.2 导出全部</button>
+      <button data-cmd="3.3" class="mini danger">3.3 清空</button>
+    </div>
+    <div class="stat" style="margin-top:10px" id="expStat">发送 <code>3.2</code> 后自动收数并下载 Excel</div>
+    <div class="tblwrap" id="tblWrap" hidden>
+      <table id="expTable"><thead></thead><tbody></tbody></table>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnXlsx" disabled>重新下载 Excel</button>
+      <button id="btnCsv" disabled>下载 CSV</button>
+      <button id="btnPlot" disabled>绘制 T²–L 图</button>
+      <button id="btnPng" disabled hidden>下载 T²–L 图 PNG</button>
+    </div>
+    <canvas id="plotCanvas" height="0" hidden></canvas>
+    <div class="stat" id="fitStat"></div>
+  </div>
+
+  <!-- 实时波形 -->
+  <div class="card">
+    <h2>实时波形 <span class="chip" id="streamChip">未推送</span></h2>
+    <div class="tip" style="margin:0 0 8px">前置：<code>APP 2</code> 切到单摆程序 → 发 <code>STREAM ON</code> → 在开发板上短按键开始测量（或 <code>SIM ON</code>）。</div>
+    <div class="row">
+      <button id="btnStreamToggle">STREAM ON</button>
+      <button id="btnStreamCsv" disabled>下载波形 CSV</button>
+    </div>
+    <canvas id="streamCanvas" height="0"></canvas>
+    <div>
+      <span class="stat">帧 <b id="stN">0</b></span>
+      <span class="stat">丢帧 <b id="stGap">0</b></span>
+      <span class="stat">Tavg <b id="stT">—</b></span>
+      <span class="stat">Gavg <b id="stG">—</b></span>
+      <span class="stat">L <b id="stL">—</b></span>
+      <span class="stat">率 <b id="stRate">0</b>/s</span>
+    </div>
+  </div>
+
+  <!-- 使用说明 -->
+  <div class="card">
+    <h2>运行说明</h2>
+    <details open>
+      <summary>电脑端（Windows / macOS / Linux）：用 pc_web_server.py 启动</summary>
+      <pre>pip install -r requirements.txt
+python pc_web_server.py     # 浏览器自动打开 http://127.0.0.1:8777/
+python pc_web_server.py AA:BB:CC:DD:EE:FF   # 指定地址直连</pre>
+      <p class="tip">蓝牙由本机 Python（bleak）接管，页面通过 SSE 实时收行，<b>UI 与手机版完全相同</b>。没接开发板时可点「服务自检」按钮——后端会注入脚本化波形与导出数据，用来验证整条页面链路（Excel/绘图/波形都在浏览器里完成，与硬件无关）。</p>
+    </details>
+    <details open>
+      <summary>为什么不在手机 Ubuntu 里直接跑 ble_cli.py？</summary>
+      <p>手机里的 Ubuntu（proot/chroot 容器）<b>没有蓝牙控制器访问权</b>：Android 的蓝牙栈独占射频芯片，容器内既没有 <code>hci0</code> 也没有 BlueZ D-Bus，Python 的 bleak 库因此完全扫不到设备——root 也无法优雅解决（需要停掉 Android 蓝牙、在内核层 hciattach，逐机型不同且极脆弱）。<br>
+      本页改用浏览器的 <b>Web Bluetooth</b> API：Chrome 直接调用 Android 系统蓝牙栈，权限、连接管理都由系统处理，功能与 PC 版 ble_cli.py 一致。</p>
+    </details>
+    <details open>
+      <summary>启动步骤（Ubuntu 环境内）</summary>
+      <pre>cd /path/to/firmware/TaskManagerFirmware/tools
+python3 -m http.server 8000</pre>
+      <p>然后用 <b>Chrome / Edge 等 Chromium 内核浏览器</b>打开：</p>
+      <pre>http://127.0.0.1:8000/ble_cli_web.html</pre>
+      <p class="tip">① Web Bluetooth 只在 <code>https</code> 或 <code>localhost</code> 下可用，所以必须经本地服务打开，<b>直接点开文件（file://）不行</b>；② 小米自带浏览器可能未开放 Web Bluetooth，请用 Chrome；③ 下载的文件在手机「下载/Download」目录。</p>
+    </details>
+    <details>
+      <summary>常用操作流程（与 PC 版一致）</summary>
+      <pre>配网：  1 → 看WiFi列表输序号 → 输密码
+摆长：  2 → 2.2 → 输新摆长 → y 确认
+海拔：  2 会话内：alt 500
+导出：  3 → 3.2 → 自动收数+下载Excel+T²-L图
+清空：  3 → 3.3 → CLEAR
+天气：  4 → 4.1状态 / 4.2坐标 / 4.3更新 / 4.4 Key+Host
+模拟：  APP 2 → SIM ON（测完 SIM OFF 自动结算入库）
+波形：  APP 2 → STREAM ON → 板上短按键开始 → 实时曲线</pre>
+    </details>
+    <details>
+      <summary>常见问题</summary>
+      <p>· 扫不到设备：开发板重新上电；确认没被 nRF Connect 等 App 占用；浏览器蓝牙权限（系统设置里）已允许。<br>
+      · 连上但无输出：随便发个 <code>0</code>。<br>
+      · 波形时息屏会断流：波形卡片会自动申请屏幕常亮；若仍中断，请在系统设置给浏览器「无限制」省电策略。<br>
+      · 导出中断：20 秒无新数据会自动按已收到的部分数据落盘（与 PC 版看门狗一致）。</p>
+    </details>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ================= NUS 常量（与固件 fw_ble 一致） ================= */
+/* Web Bluetooth 对 128-bit UUID 只接受标准字符串格式（数值/BigInt 形式会报错） */
+const NUS_SVC = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // 板接收（写）
+const NUS_TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // 板发送（notify）
+const DEV_NAME = "pendulum-g";
+const WATCHDOG_MS = 20000;
+
+/* ================= 全局状态 ================= */
+let server=null, txChar=null, notifyChar=null, devName="—";
+let rxBuf="", decoder=new TextDecoder("utf-8");
+let exporting=false, expExpect=0, expRows=[], expTimer=null, lastRows=null;
+let streamArmed=false, streaming=false;
+let frames=[], lastSeq=0, gapCount=0, rateCnt=0;
+let wakeLock=null;
+
+const $=id=>document.getElementById(id);
+function toast(s){const t=$("toast");t.textContent=s;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2400);}
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function logLine(cls,txt){const el=$("log");const d=document.createElement("div");if(cls)d.className=cls;d.textContent=txt;el.appendChild(d);
+  while(el.childElementCount>800)el.removeChild(el.firstChild);
+  el.scrollTop=el.scrollHeight;}
+
+/* ================= 连接 ================= */
+function setConn(on,name){
+  $("connChip").className="chip "+(on?"on":"off");
+  $("connChip").textContent=on?"已连接 "+(name||""):"未连接";
+  $("btnDisc").disabled=!on;
+  $("btnReconn").disabled=on;
+  $("devInfo").textContent=on?("设备："+(name||"")+"（NUS 通道就绪）"):"设备：—";
+}
+function onDisconnected(){
+  server=null;txChar=null;notifyChar=null;
+  setConn(false);
+  logLine("err","[连接已断开] 请检查开发板电源后重连。");
+  stopStreamLocal("断连");
+}
+async function connectDevice(device){
+  try{
+    logLine("sys","连接 "+(device.name||device.id)+" …");
+    server=await device.gatt.connect();
+    if(!device.__pgBound){device.addEventListener("gattserverdisconnected",onDisconnected);device.__pgBound=true;}
+    const svc=await server.getPrimaryService(NUS_SVC);
+    txChar=await svc.getCharacteristic(NUS_RX);
+    notifyChar=await svc.getCharacteristic(NUS_TX);
+    await notifyChar.startNotifications();
+    notifyChar.addEventListener("characteristicvaluechanged",onNotify);
+    devName=device.name||device.id;
+    setConn(true,devName);
+    logLine("ok","已连接。所有操作在下方终端进行，菜单项/命令照 PC 版输入即可。");
+    logLine("sys","提示：发 0 看状态；发 APP 2 切到单摆程序。");
+  }catch(e){
+    if(server)try{server.disconnect()}catch(_){}
+    server=null;
+    logLine("err","连接失败："+e.message);
+    toast("连接失败："+e.message);
+  }
+}
+async function doConnect(){
+  if(MODE==="server"){await serverConnect({});return;}
+  if(!navigator.bluetooth){toast("此浏览器不支持 Web Bluetooth，请用 Chrome/Edge");return;}
+  try{
+    const device=await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:"pendulum"}],
+      optionalServices:[NUS_SVC]});
+    await connectDevice(device);
+  }catch(e){
+    if(e.name==="NotFoundError"){logLine("sys","已取消选择。");toast("未选中设备");}
+    else{logLine("err","请求设备失败："+e.message);}
+  }
+}
+async function doScanAll(){
+  if(MODE==="server"){await serverConnect({all:true});return;}
+  if(!navigator.bluetooth){toast("此浏览器不支持 Web Bluetooth");return;}
+  try{
+    const device=await navigator.bluetooth.requestDevice({
+      acceptAllDevices:true,optionalServices:[NUS_SVC]});
+    await connectDevice(device);
+  }catch(e){ if(e.name!=="NotFoundError")logLine("err","请求设备失败："+e.message); }
+}
+async function doReconn(){
+  if(MODE==="server"){await serverConnect({last:true});return;}
+  try{
+    const devs=await navigator.bluetooth.getDevices();
+    const d=devs.find(x=>(x.name||"").toLowerCase().startsWith("pendulum"))||devs[0];
+    if(!d){toast("无已授权设备记录，请点「连接 pendulum-g」");return;}
+    await connectDevice(d);
+  }catch(e){logLine("err","重连失败："+e.message);}
+}
+function doDisconnect(){ if(MODE==="server"){serverDisconnect();return;} if(server){server.disconnect();} onDisconnected(); }
+
+/* ================= 收发 ================= */
+function onNotify(ev){
+  const txt=decoder.decode(ev.target.value,{stream:true});
+  rxBuf+=txt;
+  let idx;
+  while((idx=rxBuf.indexOf("\n"))>=0){
+    const line=rxBuf.slice(0,idx).replace(/\r$/,"");
+    rxBuf=rxBuf.slice(idx+1);
+    if(line.trim())handleLine(line.trim());
+  }
+}
+async function sendLine(msg){
+  if(!txChar){toast("未连接");return;}
+  if(exporting){toast("导出进行中：请等 #EXPORT END（或 20s 超时降级）");return;}
+  await rawSend(msg);
+}
+async function rawSend(msg){
+  if(MODE==="server"){await serverSend(msg);return;}
+  if(!txChar)return;
+  logLine("sent","» "+msg);
+  const data=new TextEncoder().encode(msg+"\n");
+  const CH=20; // 默认 MTU 23 → 单次最多 20 字节，超出自动分块
+  for(let i=0;i<data.length;i+=CH){
+    const c=data.subarray(i,Math.min(i+CH,data.length));
+    try{ await txChar.writeValueWithoutResponse(c); }
+    catch(e){ try{ await txChar.writeValue(c); }catch(e2){ logLine("err","发送失败："+e2.message); break; } }
+    if(data.length>CH)await new Promise(r=>setTimeout(r,15));
+  }
+}
+
+/* ================= 行处理（对齐 ble_cli.py） ================= */
+function handleLine(line){
+  if(line.startsWith("#EXPORT BEGIN")){
+    exporting=true;expRows=[];lastRows=null;hideExportUI();
+    try{expExpect=parseInt(line.split(",")[1])||0}catch(_){expExpect=0}
+    $("expChip").className="chip mid";$("expChip").textContent="接收中";
+    logLine("info","[导出开始] 预计 "+expExpect+" 组，请勿离开本页…");
+    armWatchdog();return;
+  }
+  if(line.startsWith("#EXPORT END")){
+    const was=exporting;cancelWatchdog();exporting=false;
+    if(!was&&!expRows.length){ $("expChip").className="chip";$("expChip").textContent="空闲"; return; }
+    logLine("ok","[导出结束] 实收 "+expRows.length+" 组");
+    finishExport();return;
+  }
+  if(exporting&&/^\d/.test(line)&&line.includes(",")){
+    expRows.push(line.split(","));
+    $("expStat").textContent="接收 "+expRows.length+"/"+expExpect+" …";
+    logLine("data","  "+line);
+    armWatchdog();return;
+  }
+  if(line.startsWith("#STREAM BEGIN")){
+    streaming=true;frames=[];lastSeq=0;gapCount=0;rateCnt=0;
+    $("streamChip").className="chip on";$("streamChip").textContent="推送中";
+    logLine("info","[波形] 开始推送");requestWakeLock();return;
+  }
+  if(line.startsWith("#STREAM END")){
+    stopStreamLocal("推送结束");return;
+  }
+  if(streaming&&line.startsWith("#STREAM ")){
+    const p=line.slice(8).split(",");
+    if(p.length>=7)onFrame({
+      seq:+p[0],dt_us:+p[1],T:+p[2],g_inst:+p[3],g_avg:+p[4],n:+p[5],L:+p[6]});
+    return;
+  }
+  if(line.startsWith("ERR:"))logLine("err","  "+line);
+  else if(line.startsWith("OK:"))logLine("ok","  "+line);
+  else if(line.startsWith("INFO:"))logLine("info","  "+line);
+  else logLine("data","  "+line);
+}
+
+/* ================= 导出：看门狗 / 落盘 ================= */
+function armWatchdog(){cancelWatchdog();expTimer=setTimeout(()=>{
+  if(!exporting)return;exporting=false;
+  logLine("err","[警告] 导出流 20 秒无新数据，判定固件侧已中断。");
+  logLine("info","[降级保存] 已收 "+expRows.length+"/"+expExpect+" 组，按部分数据落盘。");
+  finishExport();
+},WATCHDOG_MS);}
+function cancelWatchdog(){if(expTimer){clearTimeout(expTimer);expTimer=null;}}
+
+function finishExport(){
+  if(!expRows.length){logLine("sys","无数据可保存。");$("expChip").className="chip";$("expChip").textContent="空闲";return;}
+  lastRows=expRows;expRows=[];
+  $("expChip").className="chip on";$("expChip").textContent="完成";
+  renderTable(lastRows);
+  drawT2L(lastRows);
+  $("expStat").textContent="已保存 "+lastRows.length+" 组"+
+    (expExpect&&expExpect!==lastRows.length?("（预计 "+expExpect+" 组，可能有缺失）"):"")+" · Excel 已下载";
+  try{
+    const stamp=new Date().toISOString().replace(/[-:T]/g,"").slice(0,15);
+    downloadBlob(makeXlsx(lastRows),"pendulum_history_"+stamp+".xlsx");
+    logLine("ok","[完成] Excel 已下载（浏览器的下载目录）");
+  }catch(e){logLine("err","Excel 生成失败："+e.message+"（可改用 CSV 按钮）");}
+  $("btnXlsx").disabled=false;$("btnCsv").disabled=false;
+  $("btnPlot").disabled=false;$("btnPng").hidden=false;
+}
+function hideExportUI(){$("tblWrap").hidden=true;$("plotCanvas").hidden=true;$("plotCanvas").height=0;$("fitStat").textContent="";}
+const EXPORT_COLS=["序号","时间","L(m)","N(半周期数)","Tavg(s)","Gavg(m/s²)","相对误差"];
+function num(v){v=String(v).trim().replace(/%$/,"");const f=Number(v); // Number 严格整串解析，"2026-10-02 10:00" 保持字符串
+  return v!==""&&!isNaN(f)?(Number.isInteger(f)&&!v.includes(".")?f:Math.round(f*1e4)/1e4):v;}
+function renderTable(rows){
+  const thead=$("expTable").tHead,tbody=$("expTable").tBodies[0];
+  thead.innerHTML="<tr>"+EXPORT_COLS.map(h=>"<th>"+h+"</th>").join("")+"</tr>";
+  tbody.innerHTML=rows.map(r=>"<tr>"+r.map(c=>"<td>"+esc(c)+"</td>").join("")+"</tr>").join("");
+  $("tblWrap").hidden=false;
+}
+
+/* ---- T²–L 图（与 ble_cli._plot_t2l 同算法） ---- */
+function drawT2L(rows){
+  const byL=new Map();
+  for(const r of rows){
+    const L=parseFloat(r[2]),T=parseFloat(r[4]);
+    if(isNaN(L)||isNaN(T))continue;
+    if(!byL.has(L))byL.set(L,[]);byL.get(L).push(T);
+  }
+  const Ls=[...byL.keys()].sort((a,b)=>a-b);
+  const T2=Ls.map(l=>{const a=byL.get(l);return a.reduce((s,x)=>s+x,0)/a.length;})
+              .map(t=>t*t);
+  const cv=$("plotCanvas");cv.hidden=false;
+  const W=Math.min(cv.parentElement.clientWidth-4,760),H=Math.round(W*0.72);
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+"px";
+  const g=cv.getContext("2d");g.scale(dpr,dpr);
+  g.fillStyle="#fff";g.fillRect(0,0,W,H);
+  const m={l:56,r:20,t:56,b:44},pw=W-m.l-m.r,ph=H-m.t-m.b;
+  let gEst=null,k=null;
+  if(Ls.length>=2){
+    const n=Ls.length,sx=Ls.reduce((a,b)=>a+b,0),sy=T2.reduce((a,b)=>a+b,0);
+    const sxx=Ls.reduce((a,b)=>a+b*b,0),sxy=Ls.reduce((a,x)=>a+x*T2[Ls.indexOf(x)],0);
+    const den=n*sxx-sx*sx;
+    if(den!==0){k=(n*sxy-sx*sy)/den;if(k>0)gEst=4*Math.PI*Math.PI/k;}
+  }
+  let title="单摆实验：T² – L 关系";
+  if(gEst)title+="    g = 4π²/k ≈ "+gEst.toFixed(3)+" m/s²";
+  else if(Ls.length<2)title+="（不同摆长 <2 组，仅画点）";
+  g.fillStyle="#1f2937";g.font="600 14px system-ui";g.textAlign="center";
+  g.fillText(title,W/2,26);
+  if(!Ls.length){g.fillStyle="#6b7280";g.font="13px system-ui";g.fillText("无可解析数据",W/2,H/2);return;}
+  const lmin=Math.min(...Ls),lmax=Math.max(...Ls),tmin=0,tmax=Math.max(...T2)*1.1||1;
+  const X=v=>m.l+(lmax===lmin?pw/2:(v-lmin)/(lmax-lmin)*pw);
+  const Y=v=>m.t+ph-(v-tmin)/(tmax-tmin)*ph;
+  g.strokeStyle="#e3e8ef";g.beginPath();
+  for(let i=0;i<=4;i++){const y=m.t+ph*i/4;g.moveTo(m.l,y);g.lineTo(W-m.r,y);}g.stroke();
+  g.strokeStyle="#94a3b8";g.beginPath();g.moveTo(m.l,m.t);g.lineTo(m.l,m.t+ph);g.lineTo(W-m.r,m.t+ph);g.stroke();
+  g.fillStyle="#374151";g.font="12px system-ui";
+  g.textAlign="center";g.fillText("摆长 L (m)",W/2,H-8);
+  g.save();g.translate(14,m.t+ph/2);g.rotate(-Math.PI/2);g.fillText("周期平方 T² (s²)",0,0);g.restore();
+  g.textAlign="right";
+  for(let i=0;i<=4;i++){const v=tmax*(1-i/4);g.fillText(v.toFixed(2),m.l-6,m.t+ph*i/4+4);}
+  if(k)for(let i=0;i<=4;i++){const l=lmin+(lmax-lmin)*i/4;g.fillText(l.toFixed(2),X(l),m.t+ph+16);}
+  if(k){g.strokeStyle="#2c3e50";g.setLineDash([6,5]);g.beginPath();
+    g.moveTo(X(lmin),Y(k*lmin));g.lineTo(X(lmax),Y(k*lmax));g.stroke();g.setLineDash([]);}
+  if(Ls.length>1){g.strokeStyle="#c0392b";g.lineWidth=2;g.beginPath();
+    Ls.forEach((l,i)=>{i?g.lineTo(X(l),Y(T2[i])):g.moveTo(X(l),Y(T2[i]))});g.stroke();g.lineWidth=1;}
+  g.fillStyle="#c0392b";
+  Ls.forEach((l,i)=>{g.beginPath();g.arc(X(l),Y(T2[i]),4,0,7);g.fill();});
+  let leg=(k?("拟合斜率 k="+k.toFixed(3)):"数据点");
+  g.fillStyle="#374151";g.textAlign="right";g.font="12px system-ui";
+  g.fillText(leg,W-m.r-6,m.t+14);
+  $("fitStat").innerHTML=gEst?("拟合结果：斜率 k = "+k.toFixed(4)+" s²/m，g = 4π²/k ≈ <b>"+gEst.toFixed(3)+" m/s²</b>")
+    :(Ls.length<2?"不同摆长组数 <2，需至少两组不同 L 的数据才有拟合意义"
+      :"未拟合：数据点趋势异常（拟合斜率 ≤0），请检查 Tavg 是否与摆长一一对应");
+}
+$("btnPng").onclick=()=>{const cv=$("plotCanvas");if(!cv.hidden)cv.toBlob(b=>downloadBlob(b,"pendulum_T2L_"+Date.now()+".png"));};
+$("btnPlot").onclick=()=>{if(lastRows)drawT2L(lastRows);};
+
+/* ================= 迷你 XLSX 生成（无依赖，store-only zip） ================= */
+const CRC_T=(()=>{const t=new Int32Array(256);for(let n=0;n<256;n++){let c=n;
+  for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
+function crc32(u8){let c=-1;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&0xff]^(c>>>8);return (c^-1)>>>0;}
+function makeZip(files){ // files:[{name,data:Uint8Array}]
+  const enc=new TextEncoder(),chunks=[],central=[];let off=0;
+  const d=new Date(),dosT=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()/2))&0xffff,
+        dosD=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xffff;
+  const w16=(v)=>[v&255,(v>>8)&255],w32=(v)=>[v&255,(v>>8)&255,(v>>16)&255,(v>>24)&255];
+  for(const f of files){
+    const nb=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+    const lh=new Uint8Array([0x50,0x4b,3,4,20,0,0,0,0,0,...w16(dosT),...w16(dosD),
+      ...w32(crc),...w32(sz),...w32(sz),...w16(nb.length),...w16(0),...nb]);
+    chunks.push(lh,f.data);
+    central.push(new Uint8Array([0x50,0x4b,1,2,20,0,20,0,0,0,0,0,...w16(dosT),...w16(dosD),
+      ...w32(crc),...w32(sz),...w32(sz),...w16(nb.length),...w16(0),...w16(0),...w16(0),...w16(0),
+      ...w32(0),...w32(off),...nb]));
+    off+=lh.length+sz;
+  }
+  const cdSz=central.reduce((a,c)=>a+c.length,0);
+  const eocd=new Uint8Array([0x50,0x4b,5,6,0,0,0,0,...w16(files.length),...w16(files.length),
+    ...w32(cdSz),...w32(off),...w16(0)]);
+  return new Blob([...chunks,...central,eocd],
+    {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+function xCol(i){let s="";i++;while(i>0){s=String.fromCharCode(65+(i-1)%26)+s;i=Math.floor((i-1)/26);}return s;}
+function makeXlsx(rows){
+  const E=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  let body="";
+  const mkRow=(cells,r)=>{
+    let x='  <row r="'+r+'">';
+    cells.forEach((v,i)=>{
+      const ref=xCol(i)+r;
+      if(typeof v==="number")x+='<c r="'+ref+'" t="n"><v>'+v+'</v></c>';
+      else x+='<c r="'+ref+'" t="inlineStr"><is><t>'+E(v)+'</t></is></c>';
+    });
+    return x+"</row>";
+  };
+  body+=mkRow(EXPORT_COLS,1);
+  rows.forEach((row,i)=>{body+=mkRow(row.map(num),i+2);});
+  const cols='<cols>'+EXPORT_COLS.map((c,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="14" customWidth="1"/>').join("")+'</cols>';
+  const files=[
+    {name:"[Content_Types].xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+      '<Default Extension="xml" ContentType="application/xml"/>'+
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+    {name:"_rels/.rels",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:"xl/workbook.xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+      '<sheets><sheet name="历史数据" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+    {name:"xl/_rels/workbook.xml.rels",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:"xl/styles.xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+      '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'+
+      '<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'+
+      '<borders count="1"><border/></borders>'+
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+      '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>'+
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
+      '</styleSheet>'},
+    {name:"xl/worksheets/sheet1.xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+cols+
+      '<sheetData>'+body+'</sheetData></worksheet>'}
+  ];
+  return makeZip(files.map(f=>({name:f.name,data:new TextEncoder().encode(f.data)})));
+}
+function downloadBlob(blob,name){
+  const a=document.createElement("a"),u=URL.createObjectURL(blob);
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},3000);
+}
+$("btnXlsx").onclick=()=>{if(lastRows)downloadBlob(makeXlsx(lastRows),"pendulum_history_"+Date.now()+".xlsx");};
+$("btnCsv").onclick=()=>{
+  if(!lastRows)return;
+  const csv="﻿"+[EXPORT_COLS.join(","),...lastRows.map(r=>r.join(","))].join("\n");
+  downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),"pendulum_history_"+Date.now()+".csv");
+};
+
+/* ================= 实时波形 ================= */
+function onFrame(f){
+  if(f.seq!==lastSeq+1&&lastSeq>0){gapCount+=f.seq-lastSeq-1;logLine("err","[波形警告] seq 跳变 "+lastSeq+"→"+f.seq+"（丢 "+(f.seq-lastSeq-1)+" 帧）");}
+  lastSeq=f.seq;rateCnt++;
+  frames.push(f);if(frames.length>20000)frames.splice(0,2000);
+  $("stN").textContent=frames.length;$("stGap").textContent=gapCount;
+  $("stT").textContent=f.T?f.T.toFixed(3)+"s":"—";
+  $("stG").textContent=f.g_avg?f.g_avg.toFixed(3):"—";
+  $("stL").textContent=f.L?f.L.toFixed(3)+"m":"—";
+  drawStream();
+}
+function stopStreamLocal(reason){
+  if(streamArmed)logLine("sys","[波形] 已停止（"+reason+"）");
+  streaming=false;streamArmed=false;
+  $("streamChip").className="chip";$("streamChip").textContent="未推送";
+  $("btnStreamToggle").textContent="STREAM ON";
+  releaseWakeLock();
+}
+async function requestWakeLock(){try{wakeLock=await navigator.wakeLock.request("screen");}catch(_){}}
+function releaseWakeLock(){try{wakeLock&&wakeLock.release();wakeLock=null;}catch(_){}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&streaming)requestWakeLock();});
+$("btnStreamToggle").onclick=async()=>{
+  if(!txChar){toast("未连接");return;}
+  const on=!streamArmed;
+  await rawSend(on?"STREAM ON":"STREAM OFF");
+  streamArmed=on;
+  $("btnStreamToggle").textContent=on?"STREAM OFF":"STREAM ON";
+};
+$("btnStreamCsv").onclick=()=>{
+  if(!frames.length){toast("暂无波形数据");return;}
+  const csv="﻿seq,dt_us,T,g_inst,g_avg,n,L\n"+frames.map(f=>[f.seq,f.dt_us,f.T,f.g_inst,f.g_avg,f.n,f.L].join(",")).join("\n");
+  downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),"pendulum_stream_"+Date.now()+".csv");
+};
+setInterval(()=>{$("stRate").textContent=rateCnt;rateCnt=0;},1000);
+
+function drawStream(){
+  const cv=$("streamCanvas");
+  if(cv.hidden)cv.hidden=false;
+  const W=Math.min(cv.parentElement.clientWidth-4,760);
+  const dpr=window.devicePixelRatio||1;
+  const rowH=110,H=rowH*3+34;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+"px";
+  const g=cv.getContext("2d");g.scale(dpr,dpr);
+  g.fillStyle="#fff";g.fillRect(0,0,W,H);
+  if(!frames.length){g.fillStyle="#94a3b8";g.font="13px system-ui";g.textAlign="center";
+    g.fillText("等待数据…（STREAM ON 且测量中）",W/2,H/2);return;}
+  const N=Math.min(frames.length,180);
+  const win=frames.slice(-N);
+  const series=[
+    {label:"周期 T (s)",color:"#2563eb",get:f=>f.T},
+    {label:"即时 g (m/s²)",color:"#dc2626",get:f=>f.g_inst},
+    {label:"平均 Gavg (m/s²)",color:"#16a34a",get:f=>f.g_avg}];
+  series.forEach((s,si)=>{
+    const y0=si*rowH+26,ph=rowH-14;
+    g.fillStyle="#1f2937";g.font="12px system-ui";g.textAlign="left";
+    g.fillText(s.label,8,si*rowH+16);
+    const vals=win.map(s.get).filter(v=>!isNaN(v));
+    if(!vals.length)return;
+    let lo=Math.min(...vals),hi=Math.max(...vals);
+    if(hi-lo<1e-9){lo-=0.5;hi+=0.5;}else{const pad=(hi-lo)*0.15;lo-=pad;hi+=pad;}
+    const X=i=>8+(N>1?i/(N-1):0.5)*(W-16);
+    const Y=v=>y0+ph-(v-lo)/(hi-lo)*ph;
+    g.strokeStyle="#eef2f7";g.beginPath();
+    for(let i=0;i<=2;i++){g.moveTo(8,y0+ph*i/2);g.lineTo(W-8,y0+ph*i/2);}g.stroke();
+    g.strokeStyle="#94a3b8";g.beginPath();g.moveTo(8,y0);g.lineTo(8,y0+ph);g.lineTo(W-8,y0+ph);g.stroke();
+    g.fillStyle="#6b7280";g.font="10px monospace";g.textAlign="left";
+    g.fillText(hi.toFixed(3),12,y0+11);g.fillText(lo.toFixed(3),12,y0+ph-2);
+    g.strokeStyle=s.color;g.lineWidth=1.6;g.beginPath();
+    let started=false;
+    for(let i=0;i<win.length;i++){
+      const v=s.get(win[i]);
+      if(isNaN(v)){started=false;continue;}
+      started?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v));
+      started=true;
+    }
+    g.stroke();g.lineWidth=1;
+  });
+}
+setInterval(()=>{if(streaming)drawStream();},300);
+
+/* ================= 后端模式（电脑端 pc_web_server.py） ================= */
+let MODE="web";                 // "web"=Web Bluetooth（手机） / "server"=本机后端（电脑）
+let es=null;
+function setMode(m){
+  MODE=m;
+  const chip=$("modeChip");
+  if(m==="server"){
+    chip.className="chip on";chip.textContent="后端模式（本机 bleak）";
+    $("btnScanAll").textContent="重新扫描（全部设备）";
+    $("btnSelfTest").hidden=false;
+  }else{
+    chip.className="chip mid";chip.textContent="Web Bluetooth 模式";
+  }
+}
+async function api(path,body){
+  try{
+    const r=await fetch(path,{method:body?"POST":"GET",
+      headers:body?{"Content-Type":"application/json"}:undefined,
+      body:body?JSON.stringify(body):undefined,cache:"no-store"});
+    return await r.json();
+  }catch(e){ return {}; }
+}
+async function serverSend(msg){
+  logLine("sent","» "+msg);
+  await api("api/send",{msg});
+}
+async function serverConnect(opt){
+  $("connChip").className="chip mid";
+  $("connChip").textContent="连接中…";
+  logLine("sys","请求后端"+(opt.all?"全扫描连接":(opt.last?"重连上次设备":"按名字 "+DEV_NAME+" 扫描连接"))+" …");
+  await api("api/connect",opt);
+}
+async function serverDisconnect(){ await api("api/disconnect",{}); setConn(false); }
+function openEventSource(){
+  if(es)es.close();
+  es=new EventSource("api/events");
+  es.onmessage=ev=>{
+    let m;try{m=JSON.parse(ev.data)}catch(_){return}
+    if(m.t==="line")handleLine(m.s);
+    else if(m.t==="state")setConn(!!m.connected,m.name);
+  };
+  es.onerror=()=>{logLine("sys","[提示] 与后端连接中断，浏览器将自动重连…");};
+}
+async function initTransport(){
+  let ok=false;
+  try{const r=await fetch("api/ping",{cache:"no-store"});if(r.ok)ok=(await r.json()).ok===true;}catch(_){}
+  if(ok){
+    setMode("server");openEventSource();
+    logLine("sys","已连接本机后端：蓝牙由 Python bleak 负责，功能与手机版完全一致。");
+  }else{
+    setMode("web");
+    logLine("sys","未检测到本机后端，使用浏览器 Web Bluetooth（手机模式）。");
+  }
+}
+$("btnSelfTest").onclick=async()=>{
+  if(MODE!=="server"){toast("该按钮仅后端模式可用");return;}
+  logLine("sys","已请求后端注入自检数据（无板也能验证页面全链路）…");
+  await api("api/selftest",{});
+};
+
+/* ================= 终端输入 ================= */
+$("btnSend").onclick=doSend;
+$("cmdInput").addEventListener("keydown",e=>{if(e.key==="Enter")doSend();});
+async function doSend(){
+  const inp=$("cmdInput"),msg=inp.value.trim();
+  if(!msg)return;
+  inp.value="";
+  if(msg.toLowerCase()==="q"&&exporting){logLine("sys","导出进行中，请等待 #EXPORT END（或 20s 无数据自动降级）。");return;}
+  await sendLine(msg);
+}
+document.querySelectorAll("[data-cmd]").forEach(b=>{
+  b.addEventListener("click",()=>{ $("cmdInput").value=b.dataset.cmd; doSend(); });
+});
+$("btnConn").onclick=doConnect;
+$("btnReconn").onclick=doReconn;
+$("btnScanAll").onclick=doScanAll;
+$("btnDisc").onclick=doDisconnect;
+logLine("sys","ble_cli 网页版就绪。手机请先在 Ubuntu 里启动本地服务并用 Chrome 打开本页（见下方说明）。");
+initTransport();
+</script>
+</body>
+</html>
