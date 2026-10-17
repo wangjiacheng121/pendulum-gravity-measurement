@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D打印外壳图纸（嘉立创X树脂免费打样版）</title>
+<style>
+  body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#f5f7fa;color:#2c3e50;margin:0;padding:24px;line-height:1.7;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  h1{font-size:26px;border-bottom:3px solid #3498db;padding-bottom:10px;}
+  h2{font-size:20px;color:#2c3e50;border-left:5px solid #3498db;padding-left:10px;margin-top:36px;}
+  h3{font-size:16px;color:#34495e;}
+  .card{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px 24px;margin:16px 0;}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px;background:#fff;}
+  th{background:#eaf2f8;color:#2c3e50;padding:8px 10px;border:1px solid #d5dbdb;text-align:center;}
+  td{padding:7px 10px;border:1px solid #d5dbdb;text-align:center;}
+  td.l{text-align:left;}
+  .ok{color:#1e8449;font-weight:bold;}
+  .warn{color:#b9770e;font-weight:bold;}
+  .bad{color:#c0392b;font-weight:bold;}
+  .tag{display:inline-block;background:#eaf2f8;color:#2471a3;border-radius:4px;padding:1px 8px;font-size:12px;margin-right:6px;}
+  .note{background:#fef9e7;border-left:4px solid #f39c12;padding:10px 14px;border-radius:4px;font-size:13.5px;margin:10px 0;}
+  .good{background:#eafaf1;border-left:4px solid #27ae60;padding:10px 14px;border-radius:4px;font-size:13.5px;margin:10px 0;}
+  code{background:#f4f4f4;padding:1px 6px;border-radius:4px;font-size:13px;}
+  .fig{text-align:center;margin:14px 0;}
+  .fig svg{max-width:100%;height:auto;background:#fff;}
+  .figcap{font-size:13px;color:#7f8c8d;margin-top:6px;}
+  ul{margin:6px 0;}
+  .mono{font-family:Consolas,monospace;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>3D打印外壳图纸（嘉立创 X 树脂免费打样版）</h1>
+<p>配套项目：单摆测重力加速度（ESP32S3 + 1.3" 屏 + 按键 + Type-C）　|　生成日期：2026-10-06　|
+建模方式：参数化脚本 <code>enclosure/model_enclosure.py</code>（全部在 E 盘，零 C 盘占用）</p>
+
+<div class="card">
+<h3>结论速览</h3>
+<table>
+<tr><th>方案</th><th>件数</th><th>单件包围盒</th><th>单件体积</th><th>≤100mm</th><th>≤70cm³</th><th>组装难度</th><th>所需免费券</th></tr>
+<tr><td><b>A 两分体</b>（沿长度中缝对半）</td><td>2</td><td>86×72×70</td><td>79.0 / 82.8 cm³</td><td class="ok">✓</td><td class="warn">⚠ 超 13~18%</td><td class="ok">★ 最易（1 条缝）</td><td>2 张（若订单页体积校验通过）</td></tr>
+<tr><td><b>B 平板分件</b>（6 面板按 ≤100mm 拆 10 块）</td><td>10</td><td>最大 86×70×3</td><td>12.6 ~ 18.1 cm³</td><td class="ok">✓</td><td class="ok">✓</td><td>中（多缝胶接）</td><td>5 张（每月助力可领）</td></tr>
+</table>
+<div class="good"><b>建议：</b>下单时先上传方案 A 的 2 个 STL，看订单页体积校验是否放行（X 树脂免费券不同时期限额不同，港澳站公示为 ≤150cm³）。若提示体积超限，改用方案 B（10 块全部双达标，按下面分组分 5 单下）。</div>
+</div>
+
+<h2>一、总体尺寸与坐标系</h2>
+<div class="card">
+<table>
+<tr><th>项目</th><th>尺寸 (mm)</th></tr>
+<tr><td>外尺寸</td><td><b>172 (X 前后) × 72 (Y 左右) × 70 (Z 高)</b></td></tr>
+<tr><td>内腔</td><td>166 × 66 × 64</td></tr>
+<tr><td>壁厚</td><td>3</td></tr>
+<tr><td>顶板 / 底板</td><td>166 × 66 × 3（内腔投影，嵌于四壁之间）</td></tr>
+<tr><td>前 / 后板</td><td>172 × 70 × 3（通长，厚 3）</td></tr>
+<tr><td>左 / 右板</td><td>66 × 70 × 3（嵌于前后板之间）</td></tr>
+</table>
+<p style="font-size:13.5px;color:#7f8c8d">坐标约定：X=0 为前面板外表面，Y=0 为左，Z=0 为底；面板之间为对接（无重叠），角部正好严丝合缝。</p>
+</div>
+
+<h2>二、开孔明细（含孔位假设，请核对）</h2>
+<div class="card">
+<table>
+<tr><th>开孔</th><th>所在板</th><th>孔尺寸</th><th>定位方式</th><th>说明</th></tr>
+<tr><td>1.3" 屏幕口</td><td>顶板（左半）</td><td>36 × 35，R2</td><td><b>孔中心</b>距顶板左边 32、距顶板前边 33</td><td class="l">顶板左/前边指与左墙/前墙相接的边（全局 X=3 / Y=3 处）</td></tr>
+<tr><td>按键杜邦过孔 ×2</td><td>顶板（左半）</td><td>Φ3.5 通孔</td><td>间距 2.54（杜邦标准），中心与屏幕口对齐，距顶板前边 10</td><td class="l">两个公对母杜邦线分别穿过，按键置于壳外</td></tr>
+<tr><td>Type-C 口</td><td>右板</td><td>9.5 × 3.8，R1.5</td><td><b>孔边缘</b>距右板前边 33、距底边 15</td><td class="l">9.5 沿水平方向，3.8 沿高度方向</td></tr>
+</table>
+<div class="note"><b>⚠ 孔位假设说明（重要）：</b>
+① 屏幕口"距左 32 / 距前 33"若按<b>孔边到板边</b>计算，则 32+35=67 &gt; 顶板宽 66，会切穿板边——因此按<b>孔中心</b>定位（中心距边 32/33），刚好居中偏前，与实物布局一致；若你实测屏幕模块位置不同，改脚本里 <code>SCR_CX/SCR_CY</code> 重跑即可。
+② 按键过孔位置为合理假设（屏幕正前方），可在脚本 <code>BTN_Y</code> 处调整。
+③ Type-C 口按<b>孔边缘</b>定位（33/15 均可放下，无冲突）。</div>
+</div>
+
+<h2>三、方案 A：两分体（推荐优先尝试）</h2>
+<div class="card">
+<p>沿 X=86（长度正中）把壳体切成左右两个"开口托盘"，各含半截前/后墙 + 一整面端墙 + 半块顶/底板。两件对缝用 502 或环氧胶接即成完整壳体。</p>
+
+<div class="fig">
+<svg width="760" height="300" viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- 俯视图: X水平(前左->后右), Y竖直(左->右), 前墙在下 -->
+  <!-- 左半 -->
+  <rect x="120" y="70" width="248" height="168" fill="#eaf2f8" stroke="#2c3e50" stroke-width="2"/>
+  <!-- 右半 -->
+  <rect x="368" y="70" width="248" height="168" fill="#fdebd0" stroke="#2c3e50" stroke-width="2"/>
+  <!-- 中缝 -->
+  <line x1="368" y1="60" x2="368" y2="248" stroke="#c0392b" stroke-width="2" stroke-dasharray="8,5"/>
+  <!-- 屏幕口 -->
+  <rect x="186" y="118" width="72" height="70" rx="4" fill="#fff" stroke="#2471a3" stroke-width="1.5"/>
+  <text x="222" y="157" font-size="11" text-anchor="middle" fill="#2471a3">屏幕口</text>
+  <!-- 按键孔 -->
+  <circle cx="215" cy="96" r="4" fill="#fff" stroke="#2471a3" stroke-width="1.2"/>
+  <circle cx="220" cy="96" r="4" fill="#fff" stroke="#2471a3" stroke-width="1.2"/>
+  <text x="217" y="86" font-size="10" text-anchor="middle" fill="#2471a3">按键×2</text>
+  <!-- Type-C -->
+  <rect x="596" y="141" width="20" height="16" rx="3" fill="#fff" stroke="#b9770e" stroke-width="1.5"/>
+  <text x="588" y="135" font-size="10" text-anchor="end" fill="#b9770e">Type-C</text>
+  <!-- 中缝标注 -->
+  <text x="368" y="45" font-size="12" text-anchor="middle" fill="#c0392b">切缝 X=86（胶接面）</text>
+  <!-- 尺寸: 总长172 -->
+  <line x1="120" y1="262" x2="616" y2="262" stroke="#555" stroke-width="1"/>
+  <line x1="120" y1="256" x2="120" y2="268" stroke="#555"/><line x1="616" y1="256" x2="616" y2="268" stroke="#555"/>
+  <text x="368" y="280" font-size="13" text-anchor="middle" fill="#333">172（前 ↔ 后）</text>
+  <!-- 尺寸: 半长86 -->
+  <line x1="120" y1="44" x2="368" y2="44" stroke="#555" stroke-width="1"/>
+  <text x="244" y="38" font-size="11" text-anchor="middle" fill="#333">左托盘 86</text>
+  <line x1="368" y1="44" x2="616" y2="44" stroke="#555" stroke-width="1"/>
+  <text x="492" y="38" font-size="11" text-anchor="middle" fill="#333">右托盘 86</text>
+  <!-- 尺寸: 宽72 -->
+  <line x1="96" y1="70" x2="96" y2="238" stroke="#555" stroke-width="1"/>
+  <text x="88" y="158" font-size="13" text-anchor="middle" fill="#333" transform="rotate(-90 88 158)">72（左 ↔ 右）</text>
+  <text x="244" y="200" font-size="13" text-anchor="middle" fill="#1a5276">左托盘 shell_left_tray</text>
+  <text x="492" y="200" font-size="13" text-anchor="middle" fill="#9c640c">右托盘 shell_right_tray</text>
+  <text x="380" y="292" font-size="11" fill="#888">俯视图（下=前面板）</text>
+</svg>
+<div class="figcap">图 1　方案 A 分体示意（俯视）：沿 X=86 切成两个开口托盘</div>
+</div>
+
+<table>
+<tr><th>零件</th><th>文件</th><th>包围盒 (mm)</th><th>体积</th><th>≤100×100×100</th><th>≤70cm³</th></tr>
+<tr><td>左托盘（含屏幕口+按键孔）</td><td class="l mono">stl/shell_left_tray.stl</td><td>86 × 72 × 70</td><td>79.03 cm³</td><td class="ok">✓</td><td class="warn">✗ 超 9.03</td></tr>
+<tr><td>右托盘（含 Type-C 口）</td><td class="l mono">stl/shell_right_tray.stl</td><td>86 × 72 × 70</td><td>82.75 cm³</td><td class="ok">✓</td><td class="warn">✗ 超 12.75</td></tr>
+</table>
+<div class="note"><b>适用条件：</b>X 树脂免费券若按 ≤150cm³（港澳站公示口径）则两件可直接免单；若订单页校验按 ≤70cm³ 拦截，请改用方案 B。</div>
+</div>
+
+<h2>四、孔位图纸</h2>
+<div class="card">
+<h3>4.1 顶板俯视图（166 × 66，下边 = 前面）</h3>
+<div class="fig">
+<svg width="820" height="420" viewBox="0 0 820 420" xmlns="http://www.w3.org/2000/svg">
+  <!-- 板 166x66, scale 4, ox=90, oy=70; 下边=前 -->
+  <rect x="90" y="70" width="664" height="264" fill="#eaf2f8" stroke="#2c3e50" stroke-width="2"/>
+  <!-- 屏幕口 36x35 R2, 中心局部(32,33) -->
+  <rect x="146" y="122" width="144" height="140" rx="8" fill="#fff" stroke="#2471a3" stroke-width="2"/>
+  <text x="218" y="196" font-size="13" text-anchor="middle" fill="#2471a3">屏幕口 36×35 R2</text>
+  <!-- 按键孔 x2 -->
+  <circle cx="212.9" cy="296" r="7" fill="#fff" stroke="#7d3c98" stroke-width="1.6"/>
+  <circle cx="223.1" cy="296" r="7" fill="#fff" stroke="#7d3c98" stroke-width="1.6"/>
+  <text x="218" y="322" font-size="11" text-anchor="middle" fill="#7d3c98">Φ3.5 ×2（间距2.54）</text>
+  <!-- 左边到屏幕中心 32 -->
+  <line x1="90" y1="40" x2="218" y2="40" stroke="#555" stroke-width="1"/>
+  <line x1="90" y1="34" x2="90" y2="46" stroke="#555"/><line x1="218" y1="34" x2="218" y2="46" stroke="#555"/>
+  <text x="154" y="34" font-size="12" text-anchor="middle" fill="#333">32（中心）</text>
+  <!-- 前边到屏幕中心 33 -->
+  <line x1="778" y1="192" x2="778" y2="334" stroke="#555" stroke-width="1"/>
+  <line x1="772" y1="192" x2="784" y2="192" stroke="#555"/><line x1="772" y1="334" x2="784" y2="334" stroke="#555"/>
+  <text x="790" y="267" font-size="12" fill="#333">33（中心）</text>
+  <!-- 总长166 -->
+  <line x1="90" y1="368" x2="754" y2="368" stroke="#555" stroke-width="1"/>
+  <line x1="90" y1="362" x2="90" y2="374" stroke="#555"/><line x1="754" y1="362" x2="754" y2="374" stroke="#555"/>
+  <text x="422" y="388" font-size="13" text-anchor="middle" fill="#333">166</text>
+  <!-- 总宽66 -->
+  <line x1="56" y1="70" x2="56" y2="334" stroke="#555" stroke-width="1"/>
+  <text x="46" y="206" font-size="13" text-anchor="middle" fill="#333" transform="rotate(-90 46 206)">66</text>
+  <!-- 前边标注 -->
+  <text x="422" y="412" font-size="11" fill="#888">下边 = 前面（与前面板相接）；屏幕口中心距左边 32、距前边 33</text>
+</svg>
+<div class="figcap">图 2　顶板孔位（对应零件 fp_top_L / 左托盘顶板部分）</div>
+</div>
+
+<h3>4.2 右板视图（66 宽 × 70 高，左边 = 前面）</h3>
+<div class="fig">
+<svg width="560" height="420" viewBox="0 0 560 420" xmlns="http://www.w3.org/2000/svg">
+  <!-- 板 66x70, scale 4, ox=110, oy=70 -->
+  <rect x="110" y="70" width="264" height="280" fill="#fdebd0" stroke="#2c3e50" stroke-width="2"/>
+  <!-- Type-C 9.5x3.8 R1.5: 孔边距左(前)33, 距底15 -->
+  <rect x="242" y="264.8" width="38" height="15.2" rx="6" fill="#fff" stroke="#b9770e" stroke-width="2"/>
+  <text x="261" y="258" font-size="12" text-anchor="middle" fill="#b9770e">Type-C 9.5×3.8 R1.5</text>
+  <!-- 左边到孔 33 -->
+  <line x1="110" y1="44" x2="242" y2="44" stroke="#555" stroke-width="1"/>
+  <line x1="110" y1="38" x2="110" y2="50" stroke="#555"/><line x1="242" y1="38" x2="242" y2="50" stroke="#555"/>
+  <text x="176" y="38" font-size="12" text-anchor="middle" fill="#333">33（孔边）</text>
+  <!-- 底到孔 15 -->
+  <line x1="396" y1="280" x2="396" y2="350" stroke="#555" stroke-width="1"/>
+  <line x1="390" y1="280" x2="402" y2="280" stroke="#555"/><line x1="390" y1="350" x2="402" y2="350" stroke="#555"/>
+  <text x="408" y="319" font-size="12" fill="#333">15（孔边）</text>
+  <!-- 总宽66 -->
+  <line x1="110" y1="384" x2="374" y2="384" stroke="#555" stroke-width="1"/>
+  <line x1="110" y1="378" x2="110" y2="390" stroke="#555"/><line x1="374" y1="378" x2="374" y2="390" stroke="#555"/>
+  <text x="242" y="404" font-size="13" text-anchor="middle" fill="#333">66</text>
+  <!-- 总高70 -->
+  <line x1="80" y1="70" x2="80" y2="350" stroke="#555" stroke-width="1"/>
+  <text x="70" y="212" font-size="13" text-anchor="middle" fill="#333" transform="rotate(-90 70 212)">70</text>
+  <text x="242" y="338" font-size="11" fill="#888">左边 = 前面（与前面板相接）</text>
+</svg>
+<div class="figcap">图 3　右板 Type-C 孔位（对应零件 fp_right / 右托盘右墙）</div>
+</div>
+</div>
+
+<h2>五、方案 B：平板分件（严格满足 ≤70cm³）</h2>
+<div class="card">
+<p>6 块面板中 4 块超长（166/172 &gt; 100mm），各沿 X=86 一分为二，共 <b>10 块平片</b>，对接胶接。每块都是简单平板，打印成功率高、无支撑或极少支撑。</p>
+<table>
+<tr><th>#</th><th>零件</th><th>文件</th><th>尺寸 (mm)</th><th>体积 (cm³)</th><th>开孔</th></tr>
+<tr><td>1</td><td>前面板·左</td><td class="l mono">fp_front_L.stl</td><td>86 × 3 × 70</td><td>18.06</td><td>—</td></tr>
+<tr><td>2</td><td>前面板·右</td><td class="l mono">fp_front_R.stl</td><td>86 × 3 × 70</td><td>18.06</td><td>—</td></tr>
+<tr><td>3</td><td>后面板·左</td><td class="l mono">fp_back_L.stl</td><td>86 × 3 × 70</td><td>18.06</td><td>—</td></tr>
+<tr><td>4</td><td>后面板·右</td><td class="l mono">fp_back_R.stl</td><td>86 × 3 × 70</td><td>18.06</td><td>—</td></tr>
+<tr><td>5</td><td>底板·左</td><td class="l mono">fp_bottom_L.stl</td><td>83 × 66 × 3</td><td>16.43</td><td>—</td></tr>
+<tr><td>6</td><td>底板·右</td><td class="l mono">fp_bottom_R.stl</td><td>83 × 66 × 3</td><td>16.43</td><td>—</td></tr>
+<tr><td>7</td><td>顶板·左</td><td class="l mono">fp_top_L.stl</td><td>83 × 66 × 3</td><td>12.61</td><td>屏幕口 + 按键孔×2</td></tr>
+<tr><td>8</td><td>顶板·右</td><td class="l mono">fp_top_R.stl</td><td>83 × 66 × 3</td><td>16.43</td><td>—</td></tr>
+<tr><td>9</td><td>左板</td><td class="l mono">fp_left.stl</td><td>3 × 66 × 70</td><td>13.86</td><td>—</td></tr>
+<tr><td>10</td><td>右板</td><td class="l mono">fp_right.stl</td><td>3 × 66 × 70</td><td>13.76</td><td>Type-C 口</td></tr>
+</table>
+<h3>下单分组建议（每券限 2 款 × 1 件、总体积 ≤70cm³）</h3>
+<table>
+<tr><th>订单</th><th>零件</th><th>合计体积</th><th>合规</th></tr>
+<tr><td>第 1 单</td><td>前面板·左 + 右</td><td>36.12 cm³</td><td class="ok">✓</td></tr>
+<tr><td>第 2 单</td><td>后面板·左 + 右</td><td>36.12 cm³</td><td class="ok">✓</td></tr>
+<tr><td>第 3 单</td><td>顶板·左 + 右</td><td>29.04 cm³</td><td class="ok">✓</td></tr>
+<tr><td>第 4 单</td><td>底板·左 + 右</td><td>32.86 cm³</td><td class="ok">✓</td></tr>
+<tr><td>第 5 单</td><td>左板 + 右板</td><td>27.62 cm³</td><td class="ok">✓</td></tr>
+</table>
+<p style="font-size:13px;color:#7f8c8d">每月可通过邀请助力领取 1 张免费券（首次无条件领 1 张），5 张券分 5 个月打完；也可先打顶板+右板（含全部开孔）验证孔位，再打其余。</p>
+</div>
+
+<h2>六、嘉立创设计规范核对表</h2>
+<div class="card">
+<table>
+<tr><th>检查项</th><th>官方要求（X 树脂 / SLA）</th><th>本设计</th><th>结论</th></tr>
+<tr><td>单模型包围盒</td><td>≤ 100×100×100 mm</td><td>A: 86×72×70　B: 最大 86×70×3</td><td class="ok">✓ 全部通过</td></tr>
+<tr><td>订单体积</td><td>≤ 70 cm³（不同时期口径可能为 150）</td><td>B 每单最大 36.1；A 单件 79~83</td><td>B 通过 / A 视口径</td></tr>
+<tr><td>壁厚</td><td>推荐 ≥2mm，紧固/卡扣 ≥1.5mm</td><td>全部 3mm</td><td class="ok">✓</td></tr>
+<tr><td>最小孔径</td><td>≥1.5mm（喷油件 ≥2mm）</td><td>最小为按键 Φ3.5</td><td class="ok">✓</td></tr>
+<tr><td>孔公差</td><td>树脂 ±0.3mm（孔收缩变小）</td><td>Type-C 9.5×3.8 相对母座 ~8.94×3.26 已留 0.5+ 余量</td><td class="ok">✓</td></tr>
+<tr><td>溢料孔</td><td>封闭空腔需 ≥2.5mm 溢料孔</td><td>开放壳体，无封闭空腔</td><td class="ok">✓ 不适用</td></tr>
+<tr><td>拼接件规则</td><td>连接杆壁厚 &gt;1.5mm、&lt;10 件、每件 +0.5 元</td><td>方案 B 为 10 件<b>分单下单</b>，非同文件拼接</td><td class="ok">✓ 不触发加收</td></tr>
+<tr><td>一文件一零件</td><td>强烈建议</td><td>12 个 STL 每文件 1 零件</td><td class="ok">✓</td></tr>
+<tr><td>模型类型</td><td>机电产品结构件、原创</td><td>自制项目外壳，参数化原创</td><td class="ok">✓</td></tr>
+</table>
+</div>
+
+<h2>七、装配与使用说明</h2>
+<div class="card">
+<ul>
+<li><b>胶接</b>：对接面用 502（快固）或环氧 AB 胶（强度高）。建议先干拼一遍确认孔位朝向，再点胶。装配顺序：前后墙 + 左右墙围框 → 底板 → 顶板（方案 B）；方案 A 直接两托盘对缝胶接。</li>
+<li><b>屏幕</b>：1.3" 屏从壳内对准 36×35 R2 窗口，热熔胶/支架固定即可；孔边距约 15mm 有足够粘接面。</li>
+<li><b>Type-C</b>：孔 9.5×3.8 已含 R1.5 圆角并预留 0.5mm 以上余量；若插头偏紧，用小刀/锉轻扩即可（树脂孔收缩 ≤0.3）。</li>
+<li><b>按键</b>：两根公对母杜邦线从顶板 2×Φ3.5 孔穿出，按键置于壳外；孔距 2.54mm 与杜邦插头间距一致。</li>
+<li><b>打印摆放</b>：平片类零件以大面朝下（贴热台）打印，变形最小；托盘件开口朝上。</li>
+<li><b>修改再生成</b>：所有尺寸/孔位集中在 <code>enclosure/model_enclosure.py</code> 顶部参数区（SCR_CX/SCR_CY 屏幕中心、BTN_Y 按键位置、SPLIT 切缝位置等），改完运行：
+<pre>cd E:/Users/2026-09-24-18-32-24/enclosure && ./.venv/Scripts/python.exe model_enclosure.py</pre></li>
+</ul>
+</div>
+
+<h2>八、文件清单</h2>
+<div class="card">
+<table>
+<tr><th>路径</th><th>内容</th></tr>
+<tr><td class="l mono">enclosure/stl/shell_left_tray.stl</td><td class="l">方案 A · 左托盘（屏幕口+按键孔）</td></tr>
+<tr><td class="l mono">enclosure/stl/shell_right_tray.stl</td><td class="l">方案 A · 右托盘（Type-C 口）</td></tr>
+<tr><td class="l mono">enclosure/stl/fp_*.stl</td><td class="l">方案 B · 平板分件 10 块</td></tr>
+<tr><td class="l mono">enclosure/外壳STL打包.zip</td><td class="l">以上 12 个 STL 的打包（直接上传嘉立创）</td></tr>
+<tr><td class="l mono">enclosure/model_enclosure.py</td><td class="l">参数化建模脚本（改参数重跑即可）</td></tr>
+<tr><td class="l mono">enclosure/report.json</td><td class="l">尺寸/体积/水密性机检报告</td></tr>
+</table>
+<p style="font-size:13px;color:#7f8c8d">免费打样下单入口：m-3dp.jlc.com → 上传 STL → 材料 X 树脂 → 选择免费券。免费件会有嘉立创生产标识（打在模型内侧平面，不影响外观）。</p>
+</div>
+
+</div>
+</body>
+</html>
